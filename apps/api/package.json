@@ -1,0 +1,21 @@
+{
+  "name": "@buswave/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "start": "bun run dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@buswave/shared": "workspace:*",
+    "@supabase/supabase-js": "^2.47.2",
+    "hono": "^4.6.14"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.7.2"
+  }
+}
