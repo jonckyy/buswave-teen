@@ -8,7 +8,9 @@
  * Format: protobuf (gtfs-realtime-bindings)
  */
 
-import { transit_realtime } from 'gtfs-realtime-bindings'
+// gtfs-realtime-bindings is CJS — use createRequire for Bun ESM compat
+import { createRequire } from 'module'
+const { transit_realtime } = createRequire(import.meta.url)('gtfs-realtime-bindings') as typeof import('gtfs-realtime-bindings')
 
 const GTFS_RT_BASE = 'https://gtfsrt.tectime.be/proto/RealTime'
 const API_KEY = process.env['GTFS_RT_API_KEY'] ?? '17F9BC53DDA54E0887B1D866E1561CBB'
