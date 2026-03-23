@@ -36,6 +36,7 @@ app.get('/debug/vehicles', async (c) => {
 app.route('/api/realtime/vehicles', vehiclesRouter)
 app.route('/api/realtime/vehicles/details', vehiclesRouter)
 app.route('/api/realtime/stops', stopsRouter)
+app.route('/api/realtime/stops/search', stopsRouter)
 app.route('/api/realtime/routes', routesRouter)
 app.route('/api/realtime/route-live', routesRouter)
 app.route('/api/realtime/route-shape', routesRouter)

@@ -69,5 +69,8 @@ export const api = {
   routeStops: (routeId: string) =>
     apiFetch<RouteDirection[]>(`/api/realtime/route-stops?routeId=${encodeURIComponent(routeId)}`),
 
+  searchStops: (q: string) =>
+    apiFetch<GtfsStop[]>(`/api/realtime/stops/search?q=${encodeURIComponent(q)}`),
+
   alerts: () => apiFetch<Alert[]>('/api/realtime/alerts'),
 }

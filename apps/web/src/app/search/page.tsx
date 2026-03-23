@@ -2,195 +2,296 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Search, ArrowLeft, ChevronRight, MapPin, Check, Plus } from 'lucide-react'
+import { Search, ChevronDown, ChevronRight, MapPin, Check, Plus, Star } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useFavoritesStore } from '@/store/favorites'
 import { cn } from '@/lib/utils'
-import type { GtfsRoute, RouteDirection } from '@buswave/shared'
+import type { GtfsRoute, GtfsStop, RouteDirection } from '@buswave/shared'
 
-type Step =
-  | { type: 'search' }
-  | { type: 'direction'; route: GtfsRoute }
-  | { type: 'stops'; route: GtfsRoute; direction: RouteDirection }
+// ── Line search with expandable stop picker ───────────────────────────────
+
+function StopRow({
+  stop,
+  routeId,
+  routeShortName,
+  selected,
+  onToggle,
+}: {
+  stop: GtfsStop
+  routeId: string
+  routeShortName: string
+  selected: boolean
+  onToggle: () => void
+}) {
+  const isFav = useFavoritesStore((s) => s.isFavorite(stop.stop_id, routeId))
+  return (
+    <button
+      onClick={onToggle}
+      disabled={isFav}
+      className={cn(
+        'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
+        isFav
+          ? 'opacity-50 cursor-default'
+          : selected
+          ? 'bg-accent-cyan/10'
+          : 'hover:bg-white/5'
+      )}
+    >
+      <div className={cn(
+        'w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-colors',
+        isFav
+          ? 'border-on-time bg-on-time/20'
+          : selected
+          ? 'border-accent-cyan bg-accent-cyan'
+          : 'border-border'
+      )}>
+        {isFav
+          ? <Star className="h-2.5 w-2.5 text-on-time" />
+          : selected && <Check className="h-2.5 w-2.5 text-[#0A0E17]" />
+        }
+      </div>
+      <MapPin className="h-3.5 w-3.5 text-muted shrink-0" />
+      <span className="text-sm text-white truncate">{stop.stop_name}</span>
+      {isFav && <span className="text-xs text-on-time ml-auto shrink-0">Déjà favori</span>}
+    </button>
+  )
+}
+
+function LineCard({ route }: { route: GtfsRoute }) {
+  const [expanded, setExpanded] = useState(false)
+  const [activeDir, setActiveDir] = useState<0 | 1>(0)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const addFavorite = useFavoritesStore((s) => s.addFavorite)
+
+  const { data: directions = [], isLoading } = useQuery({
+    queryKey: ['route-stops', route.route_id],
+    queryFn: () => api.routeStops(route.route_id),
+    enabled: expanded,
+    staleTime: 60_000,
+  })
+
+  const currentDir = directions.find((d) => d.directionId === activeDir) ?? directions[0]
+
+  function toggleStop(stopId: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      next.has(stopId) ? next.delete(stopId) : next.add(stopId)
+      return next
+    })
+  }
+
+  function addSelected() {
+    if (!currentDir) return
+    const stops = currentDir.stops.filter((s) => selected.has(s.stop_id))
+    for (const stop of stops) {
+      addFavorite({
+        stopId: stop.stop_id,
+        routeId: route.route_id,
+        userId: null,
+        label: `${route.route_short_name} · ${stop.stop_name}`,
+      })
+    }
+    setSelected(new Set())
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      {/* Line header — click to expand */}
+      <button
+        onClick={() => { setExpanded((v) => !v); setSelected(new Set()) }}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors text-left"
+      >
+        <div className="flex items-center gap-3">
+          <span className="min-w-[2.5rem] rounded bg-accent-cyan/10 px-2 py-0.5 text-center text-sm font-bold text-accent-cyan">
+            {route.route_short_name}
+          </span>
+          <div>
+            <p className="text-sm font-medium text-white">{route.route_long_name}</p>
+            <p className="text-xs text-muted">Ligne TEC</p>
+          </div>
+        </div>
+        {expanded
+          ? <ChevronDown className="h-4 w-4 text-muted shrink-0" />
+          : <ChevronRight className="h-4 w-4 text-muted shrink-0" />
+        }
+      </button>
+
+      {/* Expanded stops */}
+      {expanded && (
+        <div className="border-t border-border">
+          {isLoading ? (
+            <div className="px-4 py-6 text-center text-muted text-sm">Chargement…</div>
+          ) : directions.length === 0 ? (
+            <div className="px-4 py-6 text-center text-muted text-sm">Aucun arrêt trouvé</div>
+          ) : (
+            <>
+              {/* Direction tabs */}
+              {directions.length > 1 && (
+                <div className="flex border-b border-border">
+                  {directions.map((dir) => (
+                    <button
+                      key={dir.directionId}
+                      onClick={() => { setActiveDir(dir.directionId); setSelected(new Set()) }}
+                      className={cn(
+                        'flex-1 px-3 py-2 text-xs font-medium transition-colors',
+                        activeDir === dir.directionId
+                          ? 'text-accent-cyan border-b-2 border-accent-cyan'
+                          : 'text-muted hover:text-white'
+                      )}
+                    >
+                      → {dir.headsign}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Stop list — max height with scroll */}
+              <div className="max-h-64 overflow-y-auto divide-y divide-border/50">
+                {(currentDir?.stops ?? []).map((stop) => (
+                  <StopRow
+                    key={stop.stop_id}
+                    stop={stop}
+                    routeId={route.route_id}
+                    routeShortName={route.route_short_name}
+                    selected={selected.has(stop.stop_id)}
+                    onToggle={() => toggleStop(stop.stop_id)}
+                  />
+                ))}
+              </div>
+
+              {/* Add selected button */}
+              {selected.size > 0 && (
+                <div className="p-3 border-t border-border">
+                  <button
+                    onClick={addSelected}
+                    className="w-full flex items-center justify-center gap-2 rounded-lg bg-accent-cyan/10 py-2.5 text-sm font-medium text-accent-cyan hover:bg-accent-cyan/20 transition-colors"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Ajouter {selected.size} arrêt{selected.size > 1 ? 's' : ''} aux favoris
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Stop search ───────────────────────────────────────────────────────────
+
+function StopSearchResult({ stop }: { stop: GtfsStop }) {
+  const addFavorite = useFavoritesStore((s) => s.addFavorite)
+  const isFav = useFavoritesStore((s) => s.isFavorite(stop.stop_id, null))
+
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <MapPin className="h-4 w-4 text-muted shrink-0" />
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-white truncate">{stop.stop_name}</p>
+          {stop.stop_code && <p className="text-xs text-muted">Code {stop.stop_code}</p>}
+        </div>
+      </div>
+      <button
+        onClick={() =>
+          addFavorite({ stopId: stop.stop_id, routeId: null, userId: null, label: stop.stop_name })
+        }
+        disabled={isFav}
+        className={cn(
+          'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors shrink-0 ml-2',
+          isFav
+            ? 'bg-on-time/10 text-on-time cursor-default'
+            : 'bg-accent-cyan/10 text-accent-cyan hover:bg-accent-cyan/20'
+        )}
+      >
+        {isFav ? <><Check className="h-3 w-3" /> Ajouté</> : <><Plus className="h-3 w-3" /> Favori</>}
+      </button>
+    </div>
+  )
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────
+
+type Mode = 'ligne' | 'arret'
 
 export default function SearchPage() {
+  const [mode, setMode] = useState<Mode>('ligne')
   const [query, setQuery] = useState('')
-  const [step, setStep] = useState<Step>({ type: 'search' })
-  const addFavorite = useFavoritesStore((s) => s.addFavorite)
-  const isFavorite = useFavoritesStore((s) => s.isFavorite)
 
   const { data: routes = [], isLoading: loadingRoutes } = useQuery({
     queryKey: ['routes-search', query],
     queryFn: () => api.searchRoutes(query),
-    enabled: step.type === 'search' && query.length >= 2,
+    enabled: mode === 'ligne' && query.length >= 2,
     staleTime: 5_000,
   })
 
-  const { data: directions = [], isLoading: loadingDirections } = useQuery({
-    queryKey: ['route-stops', step.type !== 'search' ? step.route.route_id : ''],
-    queryFn: () => api.routeStops((step as { route: GtfsRoute }).route.route_id),
-    enabled: step.type === 'direction',
+  const { data: stops = [], isLoading: loadingStops } = useQuery({
+    queryKey: ['stops-search', query],
+    queryFn: () => api.searchStops(query),
+    enabled: mode === 'arret' && query.length >= 2,
+    staleTime: 5_000,
   })
 
-  function back() {
-    if (step.type === 'stops') setStep({ type: 'direction', route: step.route })
-    else if (step.type === 'direction') setStep({ type: 'search' })
-  }
+  const isLoading = mode === 'ligne' ? loadingRoutes : loadingStops
+  const placeholder = mode === 'ligne' ? 'Numéro ou nom de ligne…' : 'Nom d\'arrêt…'
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        {step.type !== 'search' && (
-          <button onClick={back} className="text-muted hover:text-white transition-colors">
-            <ArrowLeft className="h-5 w-5" />
+      <h1 className="text-2xl font-bold text-white mb-4">Recherche</h1>
+
+      {/* Mode tabs */}
+      <div className="flex rounded-xl border border-border bg-card p-1 mb-4">
+        {(['ligne', 'arret'] as Mode[]).map((m) => (
+          <button
+            key={m}
+            onClick={() => { setMode(m); setQuery('') }}
+            className={cn(
+              'flex-1 rounded-lg py-2 text-sm font-medium transition-colors',
+              mode === m
+                ? 'bg-accent-cyan/10 text-accent-cyan'
+                : 'text-muted hover:text-white'
+            )}
+          >
+            {m === 'ligne' ? 'Par ligne' : 'Par arrêt'}
           </button>
-        )}
-        <h1 className="text-2xl font-bold text-white">
-          {step.type === 'search' && 'Recherche'}
-          {step.type === 'direction' && (
-            <span className="flex items-center gap-2">
-              <span className="rounded bg-accent-cyan/10 px-2 py-0.5 text-base font-bold text-accent-cyan">
-                {step.route.route_short_name}
-              </span>
-              Direction
-            </span>
-          )}
-          {step.type === 'stops' && (
-            <span className="flex items-center gap-2">
-              <span className="rounded bg-accent-cyan/10 px-2 py-0.5 text-base font-bold text-accent-cyan">
-                {step.route.route_short_name}
-              </span>
-              <span className="text-base font-normal text-muted truncate max-w-[180px]">
-                → {step.direction.headsign}
-              </span>
-            </span>
-          )}
-        </h1>
+        ))}
       </div>
 
-      {/* Step: search */}
-      {step.type === 'search' && (
-        <>
-          <div className="relative mb-6">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Numéro ou nom de ligne…"
-              className="w-full rounded-xl border border-border bg-card py-3 pl-10 pr-4 text-white placeholder:text-muted focus:border-accent-cyan focus:outline-none"
-              autoFocus
-            />
-          </div>
+      {/* Search input */}
+      <div className="relative mb-4">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={placeholder}
+          className="w-full rounded-xl border border-border bg-card py-3 pl-10 pr-4 text-white placeholder:text-muted focus:border-accent-cyan focus:outline-none"
+          autoFocus
+        />
+      </div>
 
-          {query.length >= 2 && (
-            <div className="space-y-2">
-              {loadingRoutes
-                ? Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="h-16 rounded-xl bg-card animate-pulse" />
-                  ))
-                : routes.length === 0
-                ? <p className="text-muted text-center py-8">Aucun résultat pour « {query} »</p>
-                : routes.map((route) => (
-                    <button
-                      key={route.route_id}
-                      onClick={() => setStep({ type: 'direction', route })}
-                      className="w-full flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 hover:border-accent-cyan/40 transition-colors text-left"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="min-w-[2.5rem] rounded bg-accent-cyan/10 px-2 py-0.5 text-center text-sm font-bold text-accent-cyan">
-                          {route.route_short_name}
-                        </span>
-                        <div>
-                          <p className="text-sm font-medium text-white">{route.route_long_name}</p>
-                          <p className="text-xs text-muted">Ligne TEC</p>
-                        </div>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted shrink-0" />
-                    </button>
-                  ))}
-            </div>
-          )}
-
-          {query.length < 2 && (
-            <p className="text-muted text-center py-8 text-sm">
-              Tapez au moins 2 caractères pour rechercher
-            </p>
-          )}
-        </>
-      )}
-
-      {/* Step: choose direction */}
-      {step.type === 'direction' && (
-        <div className="space-y-3">
-          {loadingDirections
-            ? Array.from({ length: 2 }).map((_, i) => (
+      {/* Results */}
+      {query.length >= 2 ? (
+        <div className="space-y-2">
+          {isLoading
+            ? Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="h-16 rounded-xl bg-card animate-pulse" />
               ))
-            : directions.length === 0
-            ? <p className="text-muted text-center py-8">Aucune direction disponible</p>
-            : directions.map((dir) => (
-                <button
-                  key={dir.directionId}
-                  onClick={() => setStep({ type: 'stops', route: step.route, direction: dir })}
-                  className="w-full flex items-center justify-between rounded-xl border border-border bg-card px-4 py-4 hover:border-accent-cyan/40 transition-colors text-left"
-                >
-                  <div>
-                    <p className="text-xs text-muted mb-0.5">
-                      Direction {dir.directionId === 0 ? 'aller' : 'retour'}
-                    </p>
-                    <p className="text-sm font-medium text-white">→ {dir.headsign}</p>
-                    <p className="text-xs text-muted mt-0.5">{dir.stops.length} arrêts</p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted shrink-0" />
-                </button>
-              ))}
+            : mode === 'ligne'
+            ? routes.length === 0
+              ? <p className="text-muted text-center py-8">Aucun résultat pour « {query} »</p>
+              : routes.map((route) => <LineCard key={route.route_id} route={route} />)
+            : stops.length === 0
+            ? <p className="text-muted text-center py-8">Aucun arrêt trouvé pour « {query} »</p>
+            : stops.map((stop) => <StopSearchResult key={stop.stop_id} stop={stop} />)
+          }
         </div>
-      )}
-
-      {/* Step: choose stop */}
-      {step.type === 'stops' && (
-        <div className="space-y-2">
-          {step.direction.stops.map((stop, idx) => {
-            const already = isFavorite(stop.stop_id, step.route.route_id)
-            return (
-              <div
-                key={stop.stop_id}
-                className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-xs text-muted w-5 text-right shrink-0">{idx + 1}</span>
-                  <MapPin className="h-3.5 w-3.5 text-muted shrink-0" />
-                  <p className="text-sm text-white truncate">{stop.stop_name}</p>
-                </div>
-                <button
-                  onClick={() =>
-                    addFavorite({
-                      stopId: stop.stop_id,
-                      routeId: step.route.route_id,
-                      userId: null,
-                      label: `${step.route.route_short_name} · ${stop.stop_name}`,
-                    })
-                  }
-                  disabled={already}
-                  className={cn(
-                    'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors shrink-0 ml-2',
-                    already
-                      ? 'bg-on-time/10 text-on-time cursor-default'
-                      : 'bg-accent-cyan/10 text-accent-cyan hover:bg-accent-cyan/20'
-                  )}
-                >
-                  {already ? (
-                    <><Check className="h-3 w-3" /> Ajouté</>
-                  ) : (
-                    <><Plus className="h-3 w-3" /> Favori</>
-                  )}
-                </button>
-              </div>
-            )
-          })}
-        </div>
+      ) : (
+        <p className="text-muted text-center py-8 text-sm">
+          Tapez au moins 2 caractères pour rechercher
+        </p>
       )}
     </div>
   )

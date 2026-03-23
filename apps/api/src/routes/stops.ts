@@ -57,6 +57,24 @@ stopsRouter.get('/:stopId/arrivals', async (c) => {
   return c.json({ data: arrivals } satisfies ApiResponse<StopArrival[]>)
 })
 
+/** GET /api/realtime/stops/search?q=XXX — search stops by name */
+stopsRouter.get('/search', async (c) => {
+  const q = c.req.query('q')?.trim()
+  if (!q || q.length < 2) {
+    return c.json({ data: [] } satisfies ApiResponse<GtfsStop[]>)
+  }
+
+  const { data, error } = await supabase
+    .from('stops')
+    .select('stop_id, stop_name, stop_lat, stop_lon, stop_code')
+    .ilike('stop_name', `%${q}%`)
+    .limit(30)
+
+  if (error) return c.json({ data: [] } satisfies ApiResponse<GtfsStop[]>)
+
+  return c.json({ data: (data ?? []) as GtfsStop[] } satisfies ApiResponse<GtfsStop[]>)
+})
+
 /** GET /api/realtime/stops/:stopId/info */
 stopsRouter.get('/:stopId/info', async (c) => {
   const stopId = c.req.param('stopId')
