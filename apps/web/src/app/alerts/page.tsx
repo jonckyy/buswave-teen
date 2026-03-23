@@ -1,0 +1,44 @@
+'use client'
+
+import { useQuery } from '@tanstack/react-query'
+import { AlertTriangle } from 'lucide-react'
+import { api } from '@/lib/api'
+
+export default function AlertsPage() {
+  const { data: alerts = [], isLoading } = useQuery({
+    queryKey: ['alerts'],
+    queryFn: api.alerts,
+    refetchInterval: 60_000,
+  })
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold text-white mb-6">Alertes réseau</h1>
+
+      {isLoading ? (
+        <p className="text-muted text-sm">Chargement…</p>
+      ) : alerts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card py-16 text-center">
+          <p className="text-muted">Aucune alerte en cours</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {alerts.map((alert) => (
+            <div
+              key={alert.id}
+              className="flex items-start gap-3 rounded-lg border border-slight-delay/30 bg-slight-delay/10 px-4 py-3"
+            >
+              <AlertTriangle className="h-4 w-4 text-slight-delay shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slight-delay">{alert.headerText}</p>
+                {alert.descriptionText && alert.descriptionText !== alert.headerText && (
+                  <p className="text-xs text-muted mt-0.5">{alert.descriptionText}</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

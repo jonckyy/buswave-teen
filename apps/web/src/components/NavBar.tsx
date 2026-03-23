@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bus, Map, Search, Star } from 'lucide-react'
+import { AlertTriangle, Bus, Map, Search, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
   { href: '/', label: 'Favoris', icon: Star },
   { href: '/search', label: 'Recherche', icon: Search },
   { href: '/map', label: 'Carte', icon: Map },
+  { href: '/alerts', label: 'Alertes', icon: AlertTriangle },
 ]
 
 export function NavBar() {
