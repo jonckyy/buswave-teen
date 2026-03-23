@@ -214,7 +214,7 @@ export function BusMap({ routeId, height = 480 }: BusMapProps) {
   }, [vehicles]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="relative rounded-xl overflow-hidden border border-border" style={{ height }}>
+    <div className="relative rounded-xl overflow-hidden border border-border [isolation:isolate]" style={{ height }}>
       <MapContainer
         center={[50.4, 4.5]}
         zoom={9}

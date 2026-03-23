@@ -92,7 +92,7 @@ export default function MapPage() {
 
         {/* Dropdown */}
         {open && routes.length > 0 && !selectedRoute && (
-          <ul className="absolute z-50 mt-1 w-full rounded-xl border border-border bg-card shadow-xl overflow-hidden max-h-56 overflow-y-auto">
+          <ul className="absolute z-[9999] mt-1 w-full rounded-xl border border-border bg-card shadow-xl overflow-hidden max-h-56 overflow-y-auto">
             {routes.map((route) => (
               <li key={route.route_id}>
                 <button
