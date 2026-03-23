@@ -8,6 +8,7 @@ import type {
   StopArrival,
   Alert,
   RouteWithLiveVehicles,
+  RouteDirection,
   GtfsRoute,
   GtfsStop,
 } from '@buswave/shared'
@@ -58,6 +59,9 @@ export const api = {
 
   searchRoutes: (q: string) =>
     apiFetch<GtfsRoute[]>(`/api/realtime/routes?q=${encodeURIComponent(q)}`),
+
+  routeStops: (routeId: string) =>
+    apiFetch<RouteDirection[]>(`/api/realtime/route-stops?routeId=${encodeURIComponent(routeId)}`),
 
   alerts: () => apiFetch<Alert[]>('/api/realtime/alerts'),
 }

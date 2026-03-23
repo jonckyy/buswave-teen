@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { getVehiclePositions, getCachedShapeData } from '../lib/gtfs-rt.js'
 import { supabase } from '../lib/supabase.js'
-import type { ApiResponse, GtfsRoute, RouteWithLiveVehicles, VehiclePosition } from '@buswave/shared'
+import type { ApiResponse, GtfsRoute, RouteDirection, RouteWithLiveVehicles, VehiclePosition } from '@buswave/shared'
 
 export const routesRouter = new Hono()
 
@@ -88,6 +88,71 @@ routesRouter.get('/route-live', async (c) => {
   }
 
   return c.json({ data: result } satisfies ApiResponse<RouteWithLiveVehicles>)
+})
+
+/** GET /api/realtime/route-stops?routeId=XXX — stops per direction */
+routesRouter.get('/route-stops', async (c) => {
+  const routeId = c.req.query('routeId')
+  if (!routeId) {
+    return c.json({ error: 'routeId param required', status: 400 }, 400)
+  }
+
+  // One representative trip per direction
+  const { data: trips } = await supabase
+    .from('trips')
+    .select('trip_id, direction_id, trip_headsign')
+    .eq('route_id', routeId)
+    .in('direction_id', [0, 1])
+
+  if (!trips?.length) {
+    return c.json({ data: [] } satisfies ApiResponse<RouteDirection[]>)
+  }
+
+  // Pick one trip per direction
+  const dirMap = new Map<number, { tripId: string; headsign: string }>()
+  for (const t of trips) {
+    const dir = t.direction_id ?? 0
+    if (!dirMap.has(dir)) {
+      dirMap.set(dir, { tripId: t.trip_id, headsign: t.trip_headsign ?? '' })
+    }
+  }
+
+  const directions: RouteDirection[] = []
+
+  for (const [directionId, { tripId, headsign }] of dirMap.entries()) {
+    // Get stop_times in order for this trip
+    const { data: stopTimes } = await supabase
+      .from('stop_times')
+      .select('stop_id, stop_sequence')
+      .eq('trip_id', tripId)
+      .order('stop_sequence', { ascending: true })
+
+    if (!stopTimes?.length) continue
+
+    const stopIds = stopTimes.map((s: any) => s.stop_id as string)
+
+    const { data: stops } = await supabase
+      .from('stops')
+      .select('stop_id, stop_name, stop_lat, stop_lon, stop_code')
+      .in('stop_id', stopIds)
+
+    // Reorder stops to match sequence
+    const stopMap = new Map((stops ?? []).map((s: any) => [s.stop_id, s]))
+    const orderedStops = stopIds
+      .map((id) => stopMap.get(id))
+      .filter(Boolean)
+
+    directions.push({
+      directionId: directionId as 0 | 1,
+      headsign,
+      stops: orderedStops,
+    })
+  }
+
+  // Sort by directionId
+  directions.sort((a, b) => a.directionId - b.directionId)
+
+  return c.json({ data: directions } satisfies ApiResponse<RouteDirection[]>)
 })
 
 /** GET /api/realtime/route-shape?routeId=XXX */

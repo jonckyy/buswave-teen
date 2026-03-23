@@ -46,6 +46,12 @@ export interface GtfsShape {
   shape_dist_traveled?: number
 }
 
+export interface RouteDirection {
+  directionId: 0 | 1
+  headsign: string
+  stops: GtfsStop[]
+}
+
 export interface GtfsCalendar {
   service_id: string
   monday: boolean

@@ -38,6 +38,7 @@ app.route('/api/realtime/stops', stopsRouter)
 app.route('/api/realtime/routes', routesRouter)
 app.route('/api/realtime/route-live', routesRouter)
 app.route('/api/realtime/route-shape', routesRouter)
+app.route('/api/realtime/route-stops', routesRouter)
 app.route('/api/realtime/alerts', alertsRouter)
 
 const port = Number(process.env['PORT'] ?? 3001)
