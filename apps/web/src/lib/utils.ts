@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 /** Delay color based on seconds */
 export function delayColor(delaySeconds: number): string {
-  if (delaySeconds <= 60) return 'text-on-time'
+  if (delaySeconds <= 60 && delaySeconds >= -60) return 'text-on-time'
   if (delaySeconds <= 300) return 'text-slight-delay'
   return 'text-large-delay'
 }

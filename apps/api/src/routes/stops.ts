@@ -51,12 +51,17 @@ stopsRouter.get('/:stopId/arrivals', async (c) => {
     const stu = stopTimeUpdates.find((s: any) => s.stopId === stopId)
     if (!stu) continue
 
+    const rawDelay = stu.arrival?.delay ?? stu.departure?.delay ?? 0
+    // TEC GTFS-RT emits delay=-60 as a systematic default for all trips.
+    // Treat |delay| ≤ 60s as "on schedule" to avoid a spurious 1-minute offset.
+    const delaySeconds = Math.abs(rawDelay) <= 60 ? 0 : rawDelay
+
     candidates.push({
       tripId: tu.trip?.tripId ?? '',
       routeId: tu.trip?.routeId ?? '',
       startDate: tu.trip?.startDate ?? '',
       stopSequence: stu.stopSequence ?? 0,
-      delaySeconds: stu.arrival?.delay ?? stu.departure?.delay ?? 0,
+      delaySeconds,
     })
   }
 
