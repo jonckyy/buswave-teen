@@ -32,6 +32,19 @@ app.get('/debug/vehicles', async (c) => {
   }
 })
 
+// Debug: inspect raw trip update structure
+app.get('/debug/trips', async (c) => {
+  try {
+    const { getTripUpdates } = await import('./lib/gtfs-rt.js')
+    const feed = await getTripUpdates()
+    const entities = feed?.entity ?? []
+    const sample = entities.slice(0, 2)
+    return c.json({ ok: true, entityCount: entities.length, sample })
+  } catch (e) {
+    return c.json({ ok: false, error: String(e) }, 500)
+  }
+})
+
 // Routes — one mount per router, sub-paths live inside each router
 app.route('/api/realtime/vehicles', vehiclesRouter)
 app.route('/api/realtime/stops', stopsRouter)
