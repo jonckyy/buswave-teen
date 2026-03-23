@@ -41,6 +41,7 @@ export const api = {
       `/api/realtime/vehicles/details?routeId=${encodeURIComponent(routeId)}&tripId=${encodeURIComponent(tripId)}${stopId ? `&stopId=${encodeURIComponent(stopId)}` : ''}`
     ),
 
+
   allVehicles: () =>
     apiFetch<VehiclePosition[]>('/api/realtime/vehicles'),
 
@@ -56,18 +57,18 @@ export const api = {
     apiFetch<GtfsStop>(`/api/realtime/stops/${encodeURIComponent(stopId)}/info`),
 
   routeLive: (routeId: string) =>
-    apiFetch<RouteWithLiveVehicles>(`/api/realtime/route-live?routeId=${encodeURIComponent(routeId)}`),
+    apiFetch<RouteWithLiveVehicles>(`/api/realtime/routes/route-live?routeId=${encodeURIComponent(routeId)}`),
 
   routeShape: (routeId: string) =>
     apiFetch<Array<{ lat: number; lon: number }>>(
-      `/api/realtime/route-shape?routeId=${encodeURIComponent(routeId)}`
+      `/api/realtime/routes/route-shape?routeId=${encodeURIComponent(routeId)}`
     ),
 
   searchRoutes: (q: string) =>
     apiFetch<GtfsRoute[]>(`/api/realtime/routes?q=${encodeURIComponent(q)}`),
 
   routeStops: (routeId: string) =>
-    apiFetch<RouteDirection[]>(`/api/realtime/route-stops?routeId=${encodeURIComponent(routeId)}`),
+    apiFetch<RouteDirection[]>(`/api/realtime/routes/route-stops?routeId=${encodeURIComponent(routeId)}`),
 
   searchStops: (q: string) =>
     apiFetch<GtfsStop[]>(`/api/realtime/stops/search?q=${encodeURIComponent(q)}`),

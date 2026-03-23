@@ -32,15 +32,10 @@ app.get('/debug/vehicles', async (c) => {
   }
 })
 
-// Routes
+// Routes — one mount per router, sub-paths live inside each router
 app.route('/api/realtime/vehicles', vehiclesRouter)
-app.route('/api/realtime/vehicles/details', vehiclesRouter)
 app.route('/api/realtime/stops', stopsRouter)
-app.route('/api/realtime/stops/search', stopsRouter)
 app.route('/api/realtime/routes', routesRouter)
-app.route('/api/realtime/route-live', routesRouter)
-app.route('/api/realtime/route-shape', routesRouter)
-app.route('/api/realtime/route-stops', routesRouter)
 app.route('/api/realtime/alerts', alertsRouter)
 
 const port = Number(process.env['PORT'] ?? 3001)
