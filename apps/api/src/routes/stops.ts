@@ -6,8 +6,24 @@ import type { StopArrival, ApiResponse, GtfsStop } from '@buswave/shared'
 export const stopsRouter = new Hono()
 
 /**
+ * Returns the Europe/Brussels UTC offset in seconds for a given date
+ * (e.g. +3600 for CET, +7200 for CEST). Uses noon to safely straddle DST.
+ */
+function brusselsOffsetSec(dateStr: string): number {
+  const year = parseInt(dateStr.slice(0, 4))
+  const month = parseInt(dateStr.slice(4, 6)) - 1
+  const day = parseInt(dateStr.slice(6, 8))
+  const noon = new Date(Date.UTC(year, month, day, 12))
+  const utcStr = noon.toLocaleString('en-US', { timeZone: 'UTC' })
+  const localStr = noon.toLocaleString('en-US', { timeZone: 'Europe/Brussels' })
+  return (new Date(localStr).getTime() - new Date(utcStr).getTime()) / 1000
+}
+
+/**
  * Convert GTFS time string ("HH:MM:SS", may exceed 24h) + date string ("YYYYMMDD")
  * to a Unix timestamp (seconds).
+ * TEC stores arrival_time in local Belgian time (Europe/Brussels) — subtract the
+ * UTC offset so the result is a correct UTC Unix timestamp.
  */
 function gtfsTimeToUnix(timeStr: string, dateStr: string): number {
   const [h, m, s] = timeStr.split(':').map(Number)
@@ -15,7 +31,7 @@ function gtfsTimeToUnix(timeStr: string, dateStr: string): number {
   const month = parseInt(dateStr.slice(4, 6)) - 1
   const day = parseInt(dateStr.slice(6, 8))
   const base = Date.UTC(year, month, day) / 1000
-  return base + h * 3600 + m * 60 + s
+  return base + h * 3600 + m * 60 + s - brusselsOffsetSec(dateStr)
 }
 
 /** GET /api/realtime/stops/:stopId/arrivals?routeId=XXX */
