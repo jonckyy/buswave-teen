@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { getVehiclePositions } from '../lib/gtfs-rt.js'
-import type { VehiclePosition, ApiResponse } from '@buswave/shared'
+import { supabase } from '../lib/supabase.js'
+import type { VehiclePosition, VehicleDetails, ApiResponse } from '@buswave/shared'
 
 export const vehiclesRouter = new Hono()
 
@@ -31,4 +32,31 @@ vehiclesRouter.get('/', async (c) => {
     }))
 
   return c.json({ data: vehicles } satisfies ApiResponse<VehiclePosition[]>)
+})
+
+/** GET /api/realtime/vehicles/details?routeId=&tripId=&stopId= */
+vehiclesRouter.get('/details', async (c) => {
+  const routeId = c.req.query('routeId') ?? ''
+  const tripId  = c.req.query('tripId')  ?? ''
+  const stopId  = c.req.query('stopId')  ?? ''
+
+  const [routeRow, tripRow, stopRow] = await Promise.all([
+    routeId
+      ? supabase.from('routes').select('route_short_name').eq('route_id', routeId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    tripId
+      ? supabase.from('trips').select('trip_headsign').eq('trip_id', tripId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    stopId
+      ? supabase.from('stops').select('stop_name').eq('stop_id', stopId).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+
+  const details: VehicleDetails = {
+    routeShortName: (routeRow.data as any)?.route_short_name ?? null,
+    headsign:       (tripRow.data  as any)?.trip_headsign    ?? null,
+    nextStopName:   (stopRow.data  as any)?.stop_name        ?? null,
+  }
+
+  return c.json({ data: details } satisfies ApiResponse<VehicleDetails>)
 })

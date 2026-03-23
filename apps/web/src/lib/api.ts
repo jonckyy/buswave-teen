@@ -5,6 +5,7 @@
 
 import type {
   VehiclePosition,
+  VehicleDetails,
   StopArrival,
   Alert,
   RouteWithLiveVehicles,
@@ -34,6 +35,11 @@ export const api = {
 
   debugVehicles: () =>
     rawFetch<{ ok: boolean; entityCount: number }>('/debug/vehicles'),
+
+  vehicleDetails: (routeId: string, tripId: string, stopId?: string) =>
+    apiFetch<VehicleDetails>(
+      `/api/realtime/vehicles/details?routeId=${encodeURIComponent(routeId)}&tripId=${encodeURIComponent(tripId)}${stopId ? `&stopId=${encodeURIComponent(stopId)}` : ''}`
+    ),
 
   allVehicles: () =>
     apiFetch<VehiclePosition[]>('/api/realtime/vehicles'),

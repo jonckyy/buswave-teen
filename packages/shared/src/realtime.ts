@@ -40,6 +40,12 @@ export interface Alert {
   stopIds: string[]
 }
 
+export interface VehicleDetails {
+  routeShortName: string | null
+  headsign: string | null
+  nextStopName: string | null
+}
+
 export interface RouteWithLiveVehicles {
   route: import('./gtfs.js').GtfsRoute
   vehicles: VehiclePosition[]

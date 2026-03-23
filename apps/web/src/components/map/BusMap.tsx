@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import L from 'leaflet'
 import { X, Bus, Navigation, Gauge, Clock, MapPin, Hash, ArrowRight } from 'lucide-react'
 import { api } from '@/lib/api'
-import type { VehiclePosition } from '@buswave/shared'
+import type { VehicleDetails, VehiclePosition } from '@buswave/shared'
 
 // Fix Leaflet default icon in Next.js
 if (typeof window !== 'undefined') {
@@ -68,24 +68,30 @@ function FitPointsOnce({ points }: { points: Array<{ lat: number; lon: number }>
 
 interface BusInfoPanelProps {
   vehicle: VehiclePosition
-  routeShortName?: string
+  details: VehicleDetails | undefined
+  loadingDetails: boolean
   onClose: () => void
 }
 
-function BusInfoPanel({ vehicle: v, routeShortName, onClose }: BusInfoPanelProps) {
+function BusInfoPanel({ vehicle: v, details, loadingDetails, onClose }: BusInfoPanelProps) {
   const updatedAt = new Date(v.timestamp * 1000).toLocaleTimeString('fr-BE', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
   })
 
+  const routeShortName = details?.routeShortName
+  const headsign = details?.headsign
+  const nextStopName = details?.nextStopName
+
   return (
-    <div className="absolute top-3 left-3 z-[1000] w-64 rounded-xl border border-border bg-[#131A2B]/95 backdrop-blur shadow-xl text-sm">
+    <div className="absolute top-3 left-3 z-[1000] w-72 rounded-xl border border-border bg-[#131A2B]/95 backdrop-blur shadow-xl text-sm">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-accent-cyan animate-pulse" />
           <span className="font-bold text-white">Bus {v.vehicleId}</span>
+          {loadingDetails && <span className="text-xs text-muted">…</span>}
         </div>
         <button onClick={onClose} className="text-muted hover:text-white transition-colors">
           <X className="h-4 w-4" />
@@ -95,13 +101,26 @@ function BusInfoPanel({ vehicle: v, routeShortName, onClose }: BusInfoPanelProps
       {/* Body */}
       <div className="px-4 py-3 space-y-2.5">
         <Row icon={<Bus className="h-3.5 w-3.5" />} label="Ligne">
-          <span className="font-bold text-accent-cyan">{routeShortName ?? v.routeId}</span>
-          {routeShortName && <span className="text-muted text-xs ml-1">({v.routeId})</span>}
+          {routeShortName
+            ? <><span className="font-bold text-accent-cyan">{routeShortName}</span><span className="text-muted text-xs ml-1">({v.routeId})</span></>
+            : <span className="text-accent-cyan font-bold">{v.routeId}</span>
+          }
         </Row>
 
-        <Row icon={<Hash className="h-3.5 w-3.5" />} label="Trip">
-          <span className="text-muted font-mono text-xs truncate max-w-[130px]">{v.tripId || '—'}</span>
-        </Row>
+        {headsign && (
+          <Row icon={<ArrowRight className="h-3.5 w-3.5" />} label="Direction">
+            <span className="text-white">→ {headsign}</span>
+          </Row>
+        )}
+
+        {(v.stopId || nextStopName) && (
+          <Row icon={<MapPin className="h-3.5 w-3.5" />} label="Prochain arrêt">
+            <span className="text-white">{nextStopName ?? v.stopId}</span>
+            {v.currentStopSequence != null && (
+              <span className="text-muted text-xs ml-1">#{v.currentStopSequence}</span>
+            )}
+          </Row>
+        )}
 
         {v.speed != null && (
           <Row icon={<Gauge className="h-3.5 w-3.5" />} label="Vitesse">
@@ -115,18 +134,13 @@ function BusInfoPanel({ vehicle: v, routeShortName, onClose }: BusInfoPanelProps
           </Row>
         )}
 
-        <Row icon={<MapPin className="h-3.5 w-3.5" />} label="Position">
-          <span className="text-muted font-mono text-xs">{v.lat.toFixed(5)}, {v.lon.toFixed(5)}</span>
+        <Row icon={<Hash className="h-3.5 w-3.5" />} label="Trip">
+          <span className="text-muted font-mono text-xs truncate max-w-[150px]">{v.tripId || '—'}</span>
         </Row>
 
-        {v.stopId && (
-          <Row icon={<ArrowRight className="h-3.5 w-3.5" />} label="Arrêt suivant">
-            <span className="text-white text-xs">{v.stopId}</span>
-            {v.currentStopSequence != null && (
-              <span className="text-muted text-xs ml-1">#{v.currentStopSequence}</span>
-            )}
-          </Row>
-        )}
+        <Row icon={<MapPin className="h-3.5 w-3.5 opacity-50" />} label="GPS">
+          <span className="text-muted font-mono text-xs">{v.lat.toFixed(5)}, {v.lon.toFixed(5)}</span>
+        </Row>
 
         <Row icon={<Clock className="h-3.5 w-3.5" />} label="MàJ">
           <span className="text-muted">{updatedAt}</span>
@@ -155,6 +169,18 @@ interface BusMapProps {
 export function BusMap({ routeId, height = 480 }: BusMapProps) {
   const [selectedVehicle, setSelectedVehicle] = useState<VehiclePosition | null>(null)
 
+  // Details for the selected bus (line name, headsign, next stop name)
+  const detailsQuery = useQuery({
+    queryKey: ['vehicle-details', selectedVehicle?.routeId, selectedVehicle?.tripId, selectedVehicle?.stopId],
+    queryFn: () => api.vehicleDetails(
+      selectedVehicle!.routeId,
+      selectedVehicle!.tripId,
+      selectedVehicle!.stopId,
+    ),
+    enabled: !!selectedVehicle,
+    staleTime: 30_000,
+  })
+
   // All-vehicles mode
   const allQuery = useQuery({
     queryKey: ['all-vehicles'],
@@ -179,7 +205,6 @@ export function BusMap({ routeId, height = 480 }: BusMapProps) {
 
   const shapePoints = routeQuery.data?.shapePoints ?? []
   const updatedAt = routeId ? routeQuery.dataUpdatedAt : allQuery.dataUpdatedAt
-  const routeShortName = routeQuery.data?.route.route_short_name
 
   // Keep selectedVehicle data fresh after refetch
   useEffect(() => {
@@ -230,7 +255,8 @@ export function BusMap({ routeId, height = 480 }: BusMapProps) {
       {selectedVehicle && (
         <BusInfoPanel
           vehicle={selectedVehicle}
-          routeShortName={routeShortName}
+          details={detailsQuery.data}
+          loadingDetails={detailsQuery.isLoading}
           onClose={() => setSelectedVehicle(null)}
         />
       )}
