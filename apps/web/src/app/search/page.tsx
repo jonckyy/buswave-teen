@@ -51,7 +51,10 @@ function StopRow({
         }
       </div>
       <MapPin className="h-3.5 w-3.5 text-muted shrink-0" />
-      <span className="text-sm text-white truncate">{stop.stop_name}</span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm text-white truncate">{stop.stop_name}</span>
+        {stop.stop_code && <span className="text-xs text-muted font-mono">#{stop.stop_code}</span>}
+      </span>
       {isFav && <span className="text-xs text-on-time ml-auto shrink-0">Déjà favori</span>}
     </button>
   )

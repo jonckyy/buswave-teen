@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet'
 import { useQuery } from '@tanstack/react-query'
 import L from 'leaflet'
 import { X, Bus, Navigation, Gauge, Clock, MapPin, Hash, ArrowRight } from 'lucide-react'
 import { api } from '@/lib/api'
-import type { VehicleDetails, VehiclePosition } from '@buswave/shared'
+import { cn, delayColor } from '@/lib/utils'
+import type { VehicleDetails, VehiclePosition, GtfsStop } from '@buswave/shared'
 
 // Fix Leaflet default icon in Next.js
 if (typeof window !== 'undefined') {
@@ -39,6 +40,22 @@ function busIcon(bearing?: number, selected = false) {
     "></div>`,
     iconSize: [26, 26],
     iconAnchor: [13, 13],
+  })
+}
+
+function stopMarkerIcon(selected = false) {
+  const bg = selected ? '#00D4FF' : '#8892B0'
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:10px;height:10px;
+      background:${bg};
+      border:1.5px solid #0A0E17;
+      border-radius:2px;
+      box-shadow:0 1px 4px rgba(0,0,0,0.4);
+    "></div>`,
+    iconSize: [10, 10],
+    iconAnchor: [5, 5],
   })
 }
 
@@ -150,6 +167,91 @@ function BusInfoPanel({ vehicle: v, details, loadingDetails, onClose }: BusInfoP
   )
 }
 
+interface StopInfoPanelProps {
+  stop: GtfsStop
+  routeId?: string
+  onClose: () => void
+}
+
+function StopInfoPanel({ stop, routeId, onClose }: StopInfoPanelProps) {
+  const [now, setNow] = useState(Math.floor(Date.now() / 1000))
+
+  const arrivalsQuery = useQuery({
+    queryKey: ['stop-arrivals-map', stop.stop_id, routeId],
+    queryFn: () => api.arrivals(stop.stop_id, routeId),
+    refetchInterval: 30_000,
+    staleTime: 20_000,
+  })
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  return (
+    <div className="absolute top-3 left-3 z-[1000] w-72 rounded-xl border border-border bg-[#131A2B]/95 backdrop-blur shadow-xl text-sm">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-sm bg-muted" />
+          <span className="font-bold text-white truncate max-w-[190px]">{stop.stop_name}</span>
+        </div>
+        <button onClick={onClose} className="text-muted hover:text-white transition-colors shrink-0">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Stop meta */}
+      <div className="px-4 py-3 space-y-2 border-b border-border">
+        {stop.stop_code && (
+          <Row icon={<Hash className="h-3.5 w-3.5" />} label="Code">
+            <span className="text-white font-mono font-bold">{stop.stop_code}</span>
+          </Row>
+        )}
+        <Row icon={<MapPin className="h-3.5 w-3.5 opacity-50" />} label="GPS">
+          <span className="text-muted font-mono text-xs">{stop.stop_lat.toFixed(5)}, {stop.stop_lon.toFixed(5)}</span>
+        </Row>
+      </div>
+
+      {/* Arrivals */}
+      <div className="px-4 py-3">
+        <p className="text-xs text-muted mb-2 font-medium uppercase tracking-wide">Prochains passages</p>
+        {arrivalsQuery.isLoading ? (
+          <p className="text-xs text-muted">Chargement…</p>
+        ) : !arrivalsQuery.data?.length ? (
+          <p className="text-xs text-muted">Aucun passage prévu</p>
+        ) : (
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {arrivalsQuery.data.slice(0, 6).map((a) => {
+              const secsLeft = Math.max(0, Math.round(a.predictedArrivalUnix - now))
+              const minsLeft = Math.floor(secsLeft / 60)
+              const countdown = secsLeft < 60 ? '< 1 min' : `${minsLeft} min`
+              const time = new Date(a.predictedArrivalUnix * 1000).toLocaleTimeString('fr-BE', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+              return (
+                <div key={a.tripId} className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="rounded bg-accent-cyan/10 px-1.5 py-0.5 text-xs font-bold text-accent-cyan shrink-0">
+                      {a.routeShortName}
+                    </span>
+                    <span className="text-xs text-white truncate">→ {a.headsign}</span>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className={cn('text-xs font-semibold', delayColor(a.delaySeconds))}>{countdown}</span>
+                    <span className="block text-xs text-muted">{time}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function Row({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2">
@@ -164,10 +266,13 @@ interface BusMapProps {
   /** When undefined, shows ALL active TEC buses */
   routeId?: string
   height?: number
+  /** Called when user clicks a bus — lets parent set the route filter */
+  onRouteFilter?: (routeId: string) => void
 }
 
-export function BusMap({ routeId, height = 480 }: BusMapProps) {
+export function BusMap({ routeId, height = 480, onRouteFilter }: BusMapProps) {
   const [selectedVehicle, setSelectedVehicle] = useState<VehiclePosition | null>(null)
+  const [selectedStop, setSelectedStop] = useState<GtfsStop | null>(null)
 
   // Details for the selected bus (line name, headsign, next stop name)
   const detailsQuery = useQuery({
@@ -199,6 +304,29 @@ export function BusMap({ routeId, height = 480 }: BusMapProps) {
     enabled: !!routeId,
   })
 
+  // Route stops (only when a route filter is active)
+  const stopsQuery = useQuery({
+    queryKey: ['route-stops-map', routeId],
+    queryFn: () => api.routeStops(routeId!),
+    enabled: !!routeId,
+    staleTime: 60_000,
+  })
+
+  // Deduplicated stops across all directions
+  const allStops = useMemo<GtfsStop[]>(() => {
+    const seen = new Set<string>()
+    const result: GtfsStop[] = []
+    for (const dir of (stopsQuery.data ?? [])) {
+      for (const stop of dir.stops) {
+        if (!seen.has(stop.stop_id)) {
+          seen.add(stop.stop_id)
+          result.push(stop)
+        }
+      }
+    }
+    return result
+  }, [stopsQuery.data])
+
   const vehicles: VehiclePosition[] = routeId
     ? (routeQuery.data?.vehicles ?? [])
     : (allQuery.data ?? [])
@@ -212,6 +340,19 @@ export function BusMap({ routeId, height = 480 }: BusMapProps) {
     const updated = vehicles.find((v) => v.vehicleId === selectedVehicle.vehicleId)
     if (updated) setSelectedVehicle(updated)
   }, [vehicles]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleBusClick(v: VehiclePosition) {
+    setSelectedVehicle(v)
+    setSelectedStop(null)
+    if (onRouteFilter && v.routeId) {
+      onRouteFilter(v.routeId)
+    }
+  }
+
+  function handleStopClick(stop: GtfsStop) {
+    setSelectedStop(stop)
+    setSelectedVehicle(null)
+  }
 
   return (
     <div className="relative rounded-xl overflow-hidden border border-border [isolation:isolate]" style={{ height }}>
@@ -236,13 +377,23 @@ export function BusMap({ routeId, height = 480 }: BusMapProps) {
           />
         )}
 
+        {/* Stop markers (per-route mode only) */}
+        {allStops.map((stop) => (
+          <Marker
+            key={stop.stop_id}
+            position={[stop.stop_lat, stop.stop_lon]}
+            icon={stopMarkerIcon(selectedStop?.stop_id === stop.stop_id)}
+            eventHandlers={{ click: () => handleStopClick(stop) }}
+          />
+        ))}
+
         {/* Bus markers */}
         {vehicles.map((v) => (
           <Marker
             key={v.vehicleId}
             position={[v.lat, v.lon]}
             icon={busIcon(v.bearing, selectedVehicle?.vehicleId === v.vehicleId)}
-            eventHandlers={{ click: () => setSelectedVehicle(v) }}
+            eventHandlers={{ click: () => handleBusClick(v) }}
           />
         ))}
 
@@ -258,6 +409,15 @@ export function BusMap({ routeId, height = 480 }: BusMapProps) {
           details={detailsQuery.data}
           loadingDetails={detailsQuery.isLoading}
           onClose={() => setSelectedVehicle(null)}
+        />
+      )}
+
+      {/* Stop info panel */}
+      {selectedStop && (
+        <StopInfoPanel
+          stop={selectedStop}
+          routeId={routeId}
+          onClose={() => setSelectedStop(null)}
         />
       )}
 

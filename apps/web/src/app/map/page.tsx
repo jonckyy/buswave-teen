@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 import { Search, X } from 'lucide-react'
@@ -52,6 +52,19 @@ export default function MapPage() {
     setQuery('')
     setOpen(false)
   }
+
+  // Called by BusMap when user clicks a bus — resolve route info and set filter
+  const handleRouteFilter = useCallback(async (vehicleRouteId: string) => {
+    if (selectedRoute?.route_id === vehicleRouteId) return
+    try {
+      const data = await api.routeLive(vehicleRouteId)
+      setSelectedRoute(data.route)
+      setQuery(`${data.route.route_short_name} — ${data.route.route_long_name}`)
+      setOpen(false)
+    } catch {
+      // ignore — map will still show the bus details panel
+    }
+  }, [selectedRoute])
 
   return (
     <div>
@@ -110,7 +123,7 @@ export default function MapPage() {
         )}
       </div>
 
-      <BusMap routeId={selectedRoute?.route_id} height={600} />
+      <BusMap routeId={selectedRoute?.route_id} height={600} onRouteFilter={handleRouteFilter} />
     </div>
   )
 }
