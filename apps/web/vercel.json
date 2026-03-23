@@ -1,11 +1,6 @@
 {
   "framework": "nextjs",
-  "buildCommand": "cd ../.. && npm run build --workspace=apps/web",
-  "outputDirectory": "apps/web/.next",
-  "crons": [
-    {
-      "path": "/api/cron/import-gtfs",
-      "schedule": "0 3 * * 1"
-    }
-  ]
+  "buildCommand": "next build",
+  "outputDirectory": ".next",
+  "installCommand": "cd ../.. && pnpm install"
 }
