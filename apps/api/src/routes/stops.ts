@@ -5,6 +5,19 @@ import type { StopArrival, ApiResponse, GtfsStop } from '@buswave/shared'
 
 export const stopsRouter = new Hono()
 
+/**
+ * Convert GTFS time string ("HH:MM:SS", may exceed 24h) + date string ("YYYYMMDD")
+ * to a Unix timestamp (seconds).
+ */
+function gtfsTimeToUnix(timeStr: string, dateStr: string): number {
+  const [h, m, s] = timeStr.split(':').map(Number)
+  const year = parseInt(dateStr.slice(0, 4))
+  const month = parseInt(dateStr.slice(4, 6)) - 1
+  const day = parseInt(dateStr.slice(6, 8))
+  const base = Date.UTC(year, month, day) / 1000
+  return base + h * 3600 + m * 60 + s
+}
+
 /** GET /api/realtime/stops/:stopId/arrivals?routeId=XXX */
 stopsRouter.get('/:stopId/arrivals', async (c) => {
   const stopId = c.req.param('stopId')
@@ -15,43 +28,107 @@ stopsRouter.get('/:stopId/arrivals', async (c) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const entities: any[] = feed?.entity ?? []
 
-  const arrivals: StopArrival[] = []
+  // Collect candidate trip updates that include this stop
+  type Candidate = {
+    tripId: string
+    routeId: string
+    startDate: string
+    stopSequence: number
+    delaySeconds: number
+  }
+  const candidates: Candidate[] = []
 
   for (const entity of entities) {
     const tu = entity.tripUpdate
     if (!tu) continue
+    // CANCELED trips (scheduleRelationship=3) — skip
+    if (tu.trip?.scheduleRelationship === 3) continue
     if (routeId && tu.trip?.routeId !== routeId) continue
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const stopTimeUpdates: any[] = tu.stopTimeUpdate ?? []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const stu = stopTimeUpdates.find((s: any) => s.stopId === stopId)
     if (!stu) continue
 
-    const scheduled =
-      stu.arrival?.time ?? stu.departure?.time ?? null
-    const predicted =
-      stu.arrival?.time ?? stu.departure?.time ?? null
-    if (!scheduled || !predicted) continue
-
-    // Fetch route short name from Supabase for display
-    const { data: routeRow } = await supabase
-      .from('routes')
-      .select('route_short_name')
-      .eq('route_id', tu.trip?.routeId ?? '')
-      .maybeSingle()
-
-    arrivals.push({
+    candidates.push({
       tripId: tu.trip?.tripId ?? '',
       routeId: tu.trip?.routeId ?? '',
-      routeShortName: routeRow?.route_short_name ?? tu.trip?.routeId ?? '',
-      headsign: tu.trip?.tripHeadsign ?? '',
-      scheduledArrivalUnix: Number(scheduled),
-      predictedArrivalUnix: Number(predicted),
-      delaySeconds: (stu.arrival?.delay ?? stu.departure?.delay ?? 0),
+      startDate: tu.trip?.startDate ?? '',
       stopSequence: stu.stopSequence ?? 0,
+      delaySeconds: stu.arrival?.delay ?? stu.departure?.delay ?? 0,
     })
   }
 
-  // Sort by predicted arrival
+  if (candidates.length === 0) {
+    return c.json({ data: [] } satisfies ApiResponse<StopArrival[]>)
+  }
+
+  // Batch fetch scheduled times + route names from Supabase
+  const tripIds = [...new Set(candidates.map((c) => c.tripId))]
+  const routeIds = [...new Set(candidates.map((c) => c.routeId))]
+
+  const [stopTimesRes, routesRes, tripsRes] = await Promise.all([
+    supabase
+      .from('stop_times')
+      .select('trip_id, stop_sequence, arrival_time')
+      .in('trip_id', tripIds)
+      .eq('stop_id', stopId),
+    supabase
+      .from('routes')
+      .select('route_id, route_short_name')
+      .in('route_id', routeIds),
+    supabase
+      .from('trips')
+      .select('trip_id, trip_headsign')
+      .in('trip_id', tripIds),
+  ])
+
+  // Build lookup maps
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scheduledMap = new Map<string, string>() // tripId → arrival_time
+  for (const row of stopTimesRes.data ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    scheduledMap.set((row as any).trip_id, (row as any).arrival_time)
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const routeNameMap = new Map<string, string>()
+  for (const row of routesRes.data ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    routeNameMap.set((row as any).route_id, (row as any).route_short_name)
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const headsignMap = new Map<string, string>()
+  for (const row of tripsRes.data ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    headsignMap.set((row as any).trip_id, (row as any).trip_headsign ?? '')
+  }
+
+  const nowUnix = Math.floor(Date.now() / 1000)
+  const arrivals: StopArrival[] = []
+
+  for (const cand of candidates) {
+    const arrivalTimeStr = scheduledMap.get(cand.tripId)
+    if (!arrivalTimeStr || !cand.startDate) continue
+
+    const scheduledUnix = gtfsTimeToUnix(arrivalTimeStr, cand.startDate)
+    const predictedUnix = scheduledUnix + cand.delaySeconds
+
+    // Skip already-passed arrivals
+    if (predictedUnix < nowUnix - 60) continue
+
+    arrivals.push({
+      tripId: cand.tripId,
+      routeId: cand.routeId,
+      routeShortName: routeNameMap.get(cand.routeId) ?? cand.routeId,
+      headsign: headsignMap.get(cand.tripId) ?? '',
+      scheduledArrivalUnix: scheduledUnix,
+      predictedArrivalUnix: predictedUnix,
+      delaySeconds: cand.delaySeconds,
+      stopSequence: cand.stopSequence,
+    })
+  }
+
   arrivals.sort((a, b) => a.predictedArrivalUnix - b.predictedArrivalUnix)
 
   return c.json({ data: arrivals } satisfies ApiResponse<StopArrival[]>)
