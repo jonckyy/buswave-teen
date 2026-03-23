@@ -4,12 +4,14 @@ import Link from 'next/link'
 import { Search } from 'lucide-react'
 import { useFavoritesStore, selectFavorites } from '@/store/favorites'
 import { BusCard } from '@/components/bus/BusCard'
+import { DebugStatus } from '@/components/DebugStatus'
 
 export default function HomePage() {
   const favorites = useFavoritesStore(selectFavorites)
 
   return (
     <div>
+      <DebugStatus />
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">Mes favoris</h1>
         <Link

@@ -22,6 +22,12 @@ async function apiFetch<T>(path: string): Promise<T> {
 }
 
 export const api = {
+  health: () =>
+    apiFetch<{ ok: boolean; commit: string }>('/health'),
+
+  debugVehicles: () =>
+    apiFetch<{ ok: boolean; entityCount: number }>('/debug/vehicles'),
+
   allVehicles: () =>
     apiFetch<VehiclePosition[]>('/api/realtime/vehicles'),
 
