@@ -18,8 +18,19 @@ app.use(
   })
 )
 
-// Health check
-app.get('/health', (c) => c.json({ ok: true }))
+// Health check — version helps confirm Railway deployed latest code
+app.get('/health', (c) => c.json({ ok: true, commit: '7ff85e8' }))
+
+// Debug: surface vehicle fetch errors
+app.get('/debug/vehicles', async (c) => {
+  try {
+    const { getVehiclePositions } = await import('./lib/gtfs-rt.js')
+    const feed = await getVehiclePositions()
+    return c.json({ ok: true, entityCount: feed.entity?.length ?? 0 })
+  } catch (e) {
+    return c.json({ ok: false, error: String(e) }, 500)
+  }
+})
 
 // Routes
 app.route('/api/realtime/vehicles', vehiclesRouter)
