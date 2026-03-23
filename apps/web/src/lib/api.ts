@@ -22,6 +22,9 @@ async function apiFetch<T>(path: string): Promise<T> {
 }
 
 export const api = {
+  allVehicles: () =>
+    apiFetch<VehiclePosition[]>('/api/realtime/vehicles'),
+
   vehicles: (routeId: string) =>
     apiFetch<VehiclePosition[]>(`/api/realtime/vehicles?routeId=${encodeURIComponent(routeId)}`),
 

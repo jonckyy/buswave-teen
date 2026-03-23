@@ -4,32 +4,34 @@ import type { VehiclePosition, ApiResponse } from '@buswave/shared'
 
 export const vehiclesRouter = new Hono()
 
-vehiclesRouter.get('/', async (c) => {
-  const routeId = c.req.query('routeId')
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const feed: any = await getVehiclePositions()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const entities: any[] = feed?.entity ?? []
-
-  const vehicles: VehiclePosition[] = entities
-    .filter((e: any) => {
+function entitiesToVehicles(
+  feed: Awaited<ReturnType<typeof getVehiclePositions>>,
+  routeId?: string
+): VehiclePosition[] {
+  return (feed.entity ?? [])
+    .filter((e) => {
       if (!e.vehicle?.position) return false
       if (routeId && e.vehicle?.trip?.routeId !== routeId) return false
       return true
     })
-    .map((e: any) => ({
-      vehicleId: e.vehicle.vehicle?.id ?? e.id,
-      routeId: e.vehicle?.trip?.routeId ?? '',
-      tripId: e.vehicle?.trip?.tripId ?? '',
-      lat: e.vehicle.position.latitude,
-      lon: e.vehicle.position.longitude,
-      bearing: e.vehicle.position.bearing ?? undefined,
-      speed: e.vehicle.position.speed ?? undefined,
-      timestamp: e.vehicle.timestamp ?? Math.floor(Date.now() / 1000),
-      stopId: e.vehicle.stopId ?? undefined,
-      currentStopSequence: e.vehicle.currentStopSequence ?? undefined,
+    .map((e) => ({
+      vehicleId: String(e.vehicle!.vehicle?.id ?? e.id),
+      routeId: e.vehicle!.trip?.routeId ?? '',
+      tripId: e.vehicle!.trip?.tripId ?? '',
+      lat: e.vehicle!.position!.latitude,
+      lon: e.vehicle!.position!.longitude,
+      bearing: e.vehicle!.position!.bearing ?? undefined,
+      speed: e.vehicle!.position!.speed ?? undefined,
+      timestamp: Number(e.vehicle!.timestamp ?? Math.floor(Date.now() / 1000)),
+      stopId: e.vehicle!.stopId ?? undefined,
+      currentStopSequence: e.vehicle!.currentStopSequence ?? undefined,
     }))
+}
 
+/** GET /api/realtime/vehicles — all vehicles or filtered by ?routeId= */
+vehiclesRouter.get('/', async (c) => {
+  const routeId = c.req.query('routeId')
+  const feed = await getVehiclePositions()
+  const vehicles = entitiesToVehicles(feed, routeId)
   return c.json({ data: vehicles } satisfies ApiResponse<VehiclePosition[]>)
 })
