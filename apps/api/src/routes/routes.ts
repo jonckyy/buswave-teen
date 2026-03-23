@@ -1,6 +1,5 @@
 import { Hono } from 'hono'
-import { getRouteLive } from '../lib/gtfs-rt.js'
-import { getCachedShapeData } from '../lib/gtfs-rt.js'
+import { getVehiclePositions, getCachedShapeData } from '../lib/gtfs-rt.js'
 import { supabase } from '../lib/supabase.js'
 import type { ApiResponse, GtfsRoute, RouteWithLiveVehicles, VehiclePosition } from '@buswave/shared'
 
@@ -34,12 +33,12 @@ routesRouter.get('/route-live', async (c) => {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const feed: any = await getRouteLive(routeId)
+  const feed: any = await getVehiclePositions()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const entities: any[] = feed?.entity ?? []
 
   const vehicles: VehiclePosition[] = entities
-    .filter((e: any) => e.vehicle?.position)
+    .filter((e: any) => e.vehicle?.position && e.vehicle?.trip?.routeId === routeId)
     .map((e: any) => ({
       vehicleId: e.vehicle.vehicle?.id ?? e.id,
       routeId: e.vehicle?.trip?.routeId ?? routeId,
