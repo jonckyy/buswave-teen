@@ -21,12 +21,18 @@ async function apiFetch<T>(path: string): Promise<T> {
   return json.data
 }
 
+async function rawFetch<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, { next: { revalidate: 0 } })
+  if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
+  return res.json() as Promise<T>
+}
+
 export const api = {
   health: () =>
-    apiFetch<{ ok: boolean; commit: string }>('/health'),
+    rawFetch<{ ok: boolean; commit: string }>('/health'),
 
   debugVehicles: () =>
-    apiFetch<{ ok: boolean; entityCount: number }>('/debug/vehicles'),
+    rawFetch<{ ok: boolean; entityCount: number }>('/debug/vehicles'),
 
   allVehicles: () =>
     apiFetch<VehiclePosition[]>('/api/realtime/vehicles'),
