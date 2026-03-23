@@ -6,3 +6,5 @@ apps/web
 .github
 supabase
 *.md
+pnpm-lock.yaml
+pnpm-workspace.yaml

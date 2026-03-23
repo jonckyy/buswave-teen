@@ -1,6 +1,9 @@
 FROM oven/bun:1-alpine
 WORKDIR /app
 
+# Disable corepack so "packageManager" field in package.json doesn't block bun install
+ENV COREPACK_ENABLE_STRICT=0
+
 # Copy workspace manifests first for layer caching
 COPY package.json ./
 COPY packages/shared/package.json ./packages/shared/
