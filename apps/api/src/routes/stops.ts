@@ -104,6 +104,41 @@ stopsRouter.get('/:stopId/arrivals', async (c) => {
     headsignMap.set((row as any).trip_id, (row as any).trip_headsign ?? '')
   }
 
+  // For trips with empty headsign, fetch the last stop name as fallback
+  const emptyHeadsignTripIds = tripIds.filter((id) => !headsignMap.get(id))
+  if (emptyHeadsignTripIds.length > 0) {
+    // Get last stop_id per trip (max stop_sequence)
+    // Supabase doesn't support GROUP BY directly, so fetch all and reduce
+    const { data: lastStopTimes } = await supabase
+      .from('stop_times')
+      .select('trip_id, stop_id, stop_sequence')
+      .in('trip_id', emptyHeadsignTripIds)
+      .order('stop_sequence', { ascending: false })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lastStopIdMap = new Map<string, string>()
+    for (const row of lastStopTimes ?? []) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const r = row as any
+      if (!lastStopIdMap.has(r.trip_id)) lastStopIdMap.set(r.trip_id, r.stop_id)
+    }
+
+    const lastStopIds = [...new Set(lastStopIdMap.values())]
+    if (lastStopIds.length > 0) {
+      const { data: lastStops } = await supabase
+        .from('stops')
+        .select('stop_id, stop_name')
+        .in('stop_id', lastStopIds)
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stopNameMap = new Map((lastStops ?? []).map((s: any) => [s.stop_id, s.stop_name]))
+      for (const [tripId, stopId] of lastStopIdMap.entries()) {
+        const name = stopNameMap.get(stopId)
+        if (name) headsignMap.set(tripId, name)
+      }
+    }
+  }
+
   const nowUnix = Math.floor(Date.now() / 1000)
   const arrivals: StopArrival[] = []
 

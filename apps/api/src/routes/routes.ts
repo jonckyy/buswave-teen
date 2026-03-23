@@ -142,9 +142,12 @@ routesRouter.get('/route-stops', async (c) => {
       .map((id) => stopMap.get(id))
       .filter(Boolean)
 
+    // Use last stop name when trip_headsign is empty
+    const resolvedHeadsign = headsign || (orderedStops[orderedStops.length - 1] as any)?.stop_name || ''
+
     directions.push({
       directionId: directionId as 0 | 1,
-      headsign,
+      headsign: resolvedHeadsign,
       stops: orderedStops,
     })
   }

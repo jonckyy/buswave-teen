@@ -52,9 +52,31 @@ vehiclesRouter.get('/details', async (c) => {
       : Promise.resolve({ data: null }),
   ])
 
+  let headsign: string | null = (tripRow.data as any)?.trip_headsign || null
+
+  // Fallback: use last stop of the trip when headsign is empty
+  if (!headsign && tripId) {
+    const { data: lastStopTime } = await supabase
+      .from('stop_times')
+      .select('stop_id')
+      .eq('trip_id', tripId)
+      .order('stop_sequence', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (lastStopTime) {
+      const { data: lastStop } = await supabase
+        .from('stops')
+        .select('stop_name')
+        .eq('stop_id', (lastStopTime as any).stop_id)
+        .maybeSingle()
+      headsign = (lastStop as any)?.stop_name ?? null
+    }
+  }
+
   const details: VehicleDetails = {
     routeShortName: (routeRow.data as any)?.route_short_name ?? null,
-    headsign:       (tripRow.data  as any)?.trip_headsign    ?? null,
+    headsign,
     nextStopName:   (stopRow.data  as any)?.stop_name        ?? null,
   }
 
