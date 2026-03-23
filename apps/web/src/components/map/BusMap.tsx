@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet'
+import { useEffect, useRef, useState } from 'react'
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet'
 import { useQuery } from '@tanstack/react-query'
 import L from 'leaflet'
+import { X, Bus, Navigation, Gauge, Clock, MapPin, Hash, ArrowRight } from 'lucide-react'
 import { api } from '@/lib/api'
 import type { VehiclePosition } from '@buswave/shared'
 
@@ -18,7 +19,13 @@ if (typeof window !== 'undefined') {
   })
 }
 
-function busIcon(bearing?: number, color = '#00D4FF') {
+function bearingToCompass(deg: number): string {
+  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO']
+  return dirs[Math.round(deg / 45) % 8]
+}
+
+function busIcon(bearing?: number, selected = false) {
+  const color = selected ? '#FF9100' : '#00D4FF'
   const rotation = (bearing ?? 0) - 45
   return L.divIcon({
     className: '',
@@ -28,7 +35,7 @@ function busIcon(bearing?: number, color = '#00D4FF') {
       border:2px solid #0A0E17;
       border-radius:50% 50% 50% 0;
       transform:rotate(${rotation}deg);
-      box-shadow:0 2px 8px rgba(0,212,255,0.4);
+      box-shadow:0 2px 8px ${selected ? 'rgba(255,145,0,0.6)' : 'rgba(0,212,255,0.4)'};
     "></div>`,
     iconSize: [26, 26],
     iconAnchor: [13, 13],
@@ -59,6 +66,86 @@ function FitPointsOnce({ points }: { points: Array<{ lat: number; lon: number }>
   return null
 }
 
+interface BusInfoPanelProps {
+  vehicle: VehiclePosition
+  routeShortName?: string
+  onClose: () => void
+}
+
+function BusInfoPanel({ vehicle: v, routeShortName, onClose }: BusInfoPanelProps) {
+  const updatedAt = new Date(v.timestamp * 1000).toLocaleTimeString('fr-BE', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
+
+  return (
+    <div className="absolute top-3 left-3 z-[1000] w-64 rounded-xl border border-border bg-[#131A2B]/95 backdrop-blur shadow-xl text-sm">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-accent-cyan animate-pulse" />
+          <span className="font-bold text-white">Bus {v.vehicleId}</span>
+        </div>
+        <button onClick={onClose} className="text-muted hover:text-white transition-colors">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="px-4 py-3 space-y-2.5">
+        <Row icon={<Bus className="h-3.5 w-3.5" />} label="Ligne">
+          <span className="font-bold text-accent-cyan">{routeShortName ?? v.routeId}</span>
+          {routeShortName && <span className="text-muted text-xs ml-1">({v.routeId})</span>}
+        </Row>
+
+        <Row icon={<Hash className="h-3.5 w-3.5" />} label="Trip">
+          <span className="text-muted font-mono text-xs truncate max-w-[130px]">{v.tripId || '—'}</span>
+        </Row>
+
+        {v.speed != null && (
+          <Row icon={<Gauge className="h-3.5 w-3.5" />} label="Vitesse">
+            <span className="text-white">{Math.round(v.speed * 3.6)} km/h</span>
+          </Row>
+        )}
+
+        {v.bearing != null && (
+          <Row icon={<Navigation className="h-3.5 w-3.5" />} label="Cap">
+            <span className="text-white">{Math.round(v.bearing)}° <span className="text-muted">({bearingToCompass(v.bearing)})</span></span>
+          </Row>
+        )}
+
+        <Row icon={<MapPin className="h-3.5 w-3.5" />} label="Position">
+          <span className="text-muted font-mono text-xs">{v.lat.toFixed(5)}, {v.lon.toFixed(5)}</span>
+        </Row>
+
+        {v.stopId && (
+          <Row icon={<ArrowRight className="h-3.5 w-3.5" />} label="Arrêt suivant">
+            <span className="text-white text-xs">{v.stopId}</span>
+            {v.currentStopSequence != null && (
+              <span className="text-muted text-xs ml-1">#{v.currentStopSequence}</span>
+            )}
+          </Row>
+        )}
+
+        <Row icon={<Clock className="h-3.5 w-3.5" />} label="MàJ">
+          <span className="text-muted">{updatedAt}</span>
+        </Row>
+      </div>
+    </div>
+  )
+}
+
+function Row({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2">
+      <span className="text-muted mt-0.5 shrink-0">{icon}</span>
+      <span className="text-muted w-20 shrink-0">{label}</span>
+      <span className="flex items-center gap-1 min-w-0">{children}</span>
+    </div>
+  )
+}
+
 interface BusMapProps {
   /** When undefined, shows ALL active TEC buses */
   routeId?: string
@@ -66,6 +153,8 @@ interface BusMapProps {
 }
 
 export function BusMap({ routeId, height = 480 }: BusMapProps) {
+  const [selectedVehicle, setSelectedVehicle] = useState<VehiclePosition | null>(null)
+
   // All-vehicles mode
   const allQuery = useQuery({
     queryKey: ['all-vehicles'],
@@ -90,6 +179,14 @@ export function BusMap({ routeId, height = 480 }: BusMapProps) {
 
   const shapePoints = routeQuery.data?.shapePoints ?? []
   const updatedAt = routeId ? routeQuery.dataUpdatedAt : allQuery.dataUpdatedAt
+  const routeShortName = routeQuery.data?.route.route_short_name
+
+  // Keep selectedVehicle data fresh after refetch
+  useEffect(() => {
+    if (!selectedVehicle) return
+    const updated = vehicles.find((v) => v.vehicleId === selectedVehicle.vehicleId)
+    if (updated) setSelectedVehicle(updated)
+  }, [vehicles]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="relative rounded-xl overflow-hidden border border-border" style={{ height }}>
@@ -116,21 +213,27 @@ export function BusMap({ routeId, height = 480 }: BusMapProps) {
 
         {/* Bus markers */}
         {vehicles.map((v) => (
-          <Marker key={v.vehicleId} position={[v.lat, v.lon]} icon={busIcon(v.bearing)}>
-            <Popup>
-              <div className="text-sm space-y-0.5">
-                <p className="font-bold text-white">Bus {v.vehicleId}</p>
-                {v.routeId && <p className="text-muted">Ligne {v.routeId}</p>}
-                {v.speed != null && <p className="text-muted">{Math.round(v.speed)} km/h</p>}
-              </div>
-            </Popup>
-          </Marker>
+          <Marker
+            key={v.vehicleId}
+            position={[v.lat, v.lon]}
+            icon={busIcon(v.bearing, selectedVehicle?.vehicleId === v.vehicleId)}
+            eventHandlers={{ click: () => setSelectedVehicle(v) }}
+          />
         ))}
 
         {/* Auto-fit: Belgium for all-vehicles, route bounds for per-route */}
         {!routeId && <FitBelgiumOnce />}
         {routeId && shapePoints.length > 0 && <FitPointsOnce points={shapePoints} />}
       </MapContainer>
+
+      {/* Bus info panel */}
+      {selectedVehicle && (
+        <BusInfoPanel
+          vehicle={selectedVehicle}
+          routeShortName={routeShortName}
+          onClose={() => setSelectedVehicle(null)}
+        />
+      )}
 
       {/* Status bar */}
       <div className="absolute bottom-3 right-3 z-[1000] flex items-center gap-2 rounded-full bg-background/80 backdrop-blur px-3 py-1 text-xs text-muted">
