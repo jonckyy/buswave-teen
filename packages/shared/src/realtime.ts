@@ -49,7 +49,10 @@ export interface VehicleDetails {
 export interface RouteWithLiveVehicles {
   route: import('./gtfs.js').GtfsRoute
   vehicles: VehiclePosition[]
+  /** @deprecated use shapeSegments */
   shapePoints: Array<{ lat: number; lon: number }>
+  /** Shape polyline per direction, sorted by directionId (index 0 = dir 0, index 1 = dir 1) */
+  shapeSegments: Array<Array<{ lat: number; lon: number }>>
 }
 
 // ── Distance helpers ────────────────────────────────────────────────────────

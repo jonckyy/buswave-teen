@@ -61,30 +61,41 @@ routesRouter.get('/route-live', async (c) => {
     return c.json({ error: 'Route not found', status: 404 }, 404)
   }
 
-  // Get shape for first trip on this route
-  const { data: tripRow } = await supabase
+  // Get one trip per direction to fetch both direction shapes
+  const { data: dirTripRows } = await supabase
     .from('trips')
-    .select('shape_id')
+    .select('shape_id, direction_id')
     .eq('route_id', routeId)
     .not('shape_id', 'is', null)
-    .limit(1)
-    .maybeSingle()
+    .in('direction_id', [0, 1])
 
-  const shapePoints = tripRow?.shape_id
-    ? await getCachedShapeData(tripRow.shape_id, async () => {
-        const { data: shapes } = await supabase
-          .from('shapes')
-          .select('shape_pt_lat, shape_pt_lon, shape_pt_sequence')
-          .eq('shape_id', tripRow.shape_id)
-          .order('shape_pt_sequence', { ascending: true })
-        return (shapes ?? []).map((s: any) => ({ lat: s.shape_pt_lat, lon: s.shape_pt_lon }))
-      })
-    : []
+  // One unique shape_id per direction, sorted by direction_id
+  const dirShapeIds = new Map<number, string>()
+  for (const t of dirTripRows ?? []) {
+    const dir = (t as any).direction_id ?? 0
+    if (!dirShapeIds.has(dir)) dirShapeIds.set(dir, (t as any).shape_id)
+  }
+
+  const shapeSegments: Array<Array<{ lat: number; lon: number }>> = []
+  for (const [, shapeId] of [...dirShapeIds.entries()].sort((a, b) => a[0] - b[0])) {
+    const pts = await getCachedShapeData(shapeId, async () => {
+      const { data: shapes } = await supabase
+        .from('shapes')
+        .select('shape_pt_lat, shape_pt_lon, shape_pt_sequence')
+        .eq('shape_id', shapeId)
+        .order('shape_pt_sequence', { ascending: true })
+      return (shapes ?? []).map((s: any) => ({ lat: s.shape_pt_lat, lon: s.shape_pt_lon }))
+    })
+    if (pts.length > 0) shapeSegments.push(pts)
+  }
+
+  const shapePoints = shapeSegments[0] ?? []
 
   const result: RouteWithLiveVehicles = {
     route: routeRow as GtfsRoute,
     vehicles,
     shapePoints,
+    shapeSegments,
   }
 
   return c.json({ data: result } satisfies ApiResponse<RouteWithLiveVehicles>)

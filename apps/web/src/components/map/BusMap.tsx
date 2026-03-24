@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import L from 'leaflet'
 import { X, Bus, Navigation, Gauge, Clock, MapPin, Hash, ArrowRight } from 'lucide-react'
 import { api } from '@/lib/api'
-import { cn, delayColor } from '@/lib/utils'
+import { cn, delayColor, haversineKm, shapeDistanceKm } from '@/lib/utils'
 import type { VehicleDetails, VehiclePosition, GtfsStop } from '@buswave/shared'
 
 // Fix Leaflet default icon in Next.js
@@ -79,15 +79,16 @@ function FitBelgiumOnce() {
   return null
 }
 
-/** Fits map to given points on first load only */
-function FitPointsOnce({ points }: { points: Array<{ lat: number; lon: number }> }) {
+/** Fits map to all shape segments on mount — remount with key={routeId} to re-fit on route change */
+function FitPointsOnce({ segments }: { segments: Array<Array<{ lat: number; lon: number }>> }) {
   const map = useMap()
   const hasFit = useRef(false)
   useEffect(() => {
-    if (hasFit.current || points.length === 0) return
-    map.fitBounds(L.latLngBounds(points.map((p) => [p.lat, p.lon])), { padding: [32, 32] })
+    const allPts = segments.flat()
+    if (hasFit.current || allPts.length === 0) return
+    map.fitBounds(L.latLngBounds(allPts.map((p) => [p.lat, p.lon] as [number, number])), { padding: [32, 32] })
     hasFit.current = true
-  }, [map, points])
+  }, [map, segments])
   return null
 }
 
@@ -178,10 +179,13 @@ function BusInfoPanel({ vehicle: v, details, loadingDetails, onClose }: BusInfoP
 interface StopInfoPanelProps {
   stop: GtfsStop
   routeId?: string
+  vehicles: VehiclePosition[]
+  shapeSegments: Array<Array<{ lat: number; lon: number }>>
+  stopDirMap: Map<string, string>
   onClose: () => void
 }
 
-function StopInfoPanel({ stop, routeId, onClose }: StopInfoPanelProps) {
+function StopInfoPanel({ stop, routeId, vehicles, shapeSegments, stopDirMap, onClose }: StopInfoPanelProps) {
   const [now, setNow] = useState(Math.floor(Date.now() / 1000))
 
   const arrivalsQuery = useQuery({
@@ -195,6 +199,30 @@ function StopInfoPanel({ stop, routeId, onClose }: StopInfoPanelProps) {
     const id = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000)
     return () => clearInterval(id)
   }, [])
+
+  // Find the vehicle matching the first upcoming arrival
+  const firstBus = useMemo(() => {
+    const firstTripId = arrivalsQuery.data?.[0]?.tripId
+    if (!firstTripId || !vehicles.length) return null
+    return vehicles.find((v) => v.tripId === firstTripId) ?? null
+  }, [arrivalsQuery.data, vehicles])
+
+  // Straight-line distance from first bus to this stop
+  const crowFliesKm = firstBus
+    ? haversineKm(firstBus.lat, firstBus.lon, stop.stop_lat, stop.stop_lon)
+    : null
+
+  // Road distance along the route shape
+  const roadDistKm = useMemo(() => {
+    if (!firstBus || !shapeSegments.length) return null
+    const dirKey = firstBus.stopId ? stopDirMap.get(firstBus.stopId) : undefined
+    const shape = shapeSegments[Number(dirKey ?? '0')] ?? shapeSegments[0]
+    return shapeDistanceKm(
+      shape,
+      { lat: firstBus.lat, lon: firstBus.lon },
+      { lat: stop.stop_lat, lon: stop.stop_lon },
+    )
+  }, [firstBus, shapeSegments, stopDirMap, stop])
 
   return (
     <div className="absolute top-3 left-3 z-[1000] w-72 rounded-xl border border-border bg-[#131A2B]/95 backdrop-blur shadow-xl text-sm">
@@ -220,6 +248,27 @@ function StopInfoPanel({ stop, routeId, onClose }: StopInfoPanelProps) {
           <span className="text-muted font-mono text-xs">{stop.stop_lat.toFixed(5)}, {stop.stop_lon.toFixed(5)}</span>
         </Row>
       </div>
+
+      {/* Distances to first upcoming bus */}
+      {(crowFliesKm !== null || roadDistKm !== null) && (
+        <div className="px-4 py-3 space-y-2 border-b border-border">
+          <p className="text-xs text-muted font-medium uppercase tracking-wide">Prochain bus</p>
+          {crowFliesKm !== null && (
+            <Row icon={<Navigation className="h-3.5 w-3.5" />} label="Vol d'oiseau">
+              <span className="text-white">
+                {crowFliesKm < 1 ? `${Math.round(crowFliesKm * 1000)} m` : `${crowFliesKm.toFixed(1)} km`}
+              </span>
+            </Row>
+          )}
+          {roadDistKm !== null && (
+            <Row icon={<ArrowRight className="h-3.5 w-3.5" />} label="À parcourir">
+              <span className="text-white">
+                {roadDistKm < 1 ? `${Math.round(roadDistKm * 1000)} m` : `${roadDistKm.toFixed(1)} km`}
+              </span>
+            </Row>
+          )}
+        </div>
+      )}
 
       {/* Arrivals */}
       <div className="px-4 py-3">
@@ -352,7 +401,7 @@ export function BusMap({ routeId, height = 480, onRouteFilter }: BusMapProps) {
     ? (routeQuery.data?.vehicles ?? [])
     : (allQuery.data ?? [])
 
-  const shapePoints = routeQuery.data?.shapePoints ?? []
+  const shapeSegments = routeQuery.data?.shapeSegments ?? []
   const updatedAt = routeId ? routeQuery.dataUpdatedAt : allQuery.dataUpdatedAt
 
   // Keep selectedVehicle data fresh after refetch
@@ -388,15 +437,16 @@ export function BusMap({ routeId, height = 480, onRouteFilter }: BusMapProps) {
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         />
 
-        {/* Route polyline (per-route mode only) — uses shapes.txt, never stop coords */}
-        {shapePoints.length > 0 && (
+        {/* Route polylines — one per direction, colored to match stop markers */}
+        {shapeSegments.map((seg, i) => (
           <Polyline
-            positions={shapePoints.map((p) => [p.lat, p.lon])}
-            color="#00D4FF"
+            key={i}
+            positions={seg.map((p) => [p.lat, p.lon] as [number, number])}
+            color={DIR_COLORS[String(i)] ?? '#00D4FF'}
             weight={3}
-            opacity={0.8}
+            opacity={0.7}
           />
-        )}
+        ))}
 
         {/* Stop markers (per-route mode only) — colored by direction */}
         {stopsWithDirection.map(({ stop, dirKey }) => (
@@ -422,9 +472,10 @@ export function BusMap({ routeId, height = 480, onRouteFilter }: BusMapProps) {
           )
         })}
 
-        {/* Auto-fit: Belgium for all-vehicles, route bounds for per-route */}
+        {/* Auto-fit: Belgium for all-vehicles, route bounds for per-route.
+            key={routeId} forces remount so hasFit resets on each new route selection. */}
         {!routeId && <FitBelgiumOnce />}
-        {routeId && shapePoints.length > 0 && <FitPointsOnce points={shapePoints} />}
+        {routeId && shapeSegments.length > 0 && <FitPointsOnce key={routeId} segments={shapeSegments} />}
       </MapContainer>
 
       {/* Bus info panel */}
@@ -442,6 +493,9 @@ export function BusMap({ routeId, height = 480, onRouteFilter }: BusMapProps) {
         <StopInfoPanel
           stop={selectedStop}
           routeId={routeId}
+          vehicles={vehicles}
+          shapeSegments={shapeSegments}
+          stopDirMap={stopDirMap}
           onClose={() => setSelectedStop(null)}
         />
       )}
