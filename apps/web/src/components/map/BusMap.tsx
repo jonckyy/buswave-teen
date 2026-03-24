@@ -25,8 +25,9 @@ function bearingToCompass(deg: number): string {
   return dirs[Math.round(deg / 45) % 8]
 }
 
-function busIcon(bearing?: number, selected = false) {
-  const color = selected ? '#FF9100' : '#00D4FF'
+function busIcon(bearing?: number, selected = false, dirColor = '#00D4FF') {
+  const color = selected ? '#FF9100' : dirColor
+  const glowColor = selected ? 'rgba(255,145,0,0.6)' : `${dirColor}66`
   const rotation = (bearing ?? 0) - 45
   return L.divIcon({
     className: '',
@@ -36,7 +37,7 @@ function busIcon(bearing?: number, selected = false) {
       border:2px solid #0A0E17;
       border-radius:50% 50% 50% 0;
       transform:rotate(${rotation}deg);
-      box-shadow:0 2px 8px ${selected ? 'rgba(255,145,0,0.6)' : 'rgba(0,212,255,0.4)'};
+      box-shadow:0 2px 8px ${glowColor};
     "></div>`,
     iconSize: [26, 26],
     iconAnchor: [13, 13],
@@ -336,6 +337,17 @@ export function BusMap({ routeId, height = 480, onRouteFilter }: BusMapProps) {
     return result
   }, [stopsQuery.data])
 
+  // Map stopId → dirKey for coloring bus icons by direction
+  const stopDirMap = useMemo<Map<string, string>>(() => {
+    const map = new Map<string, string>()
+    for (const dir of (stopsQuery.data ?? [])) {
+      for (const stop of dir.stops) {
+        if (!map.has(stop.stop_id)) map.set(stop.stop_id, String(dir.directionId))
+      }
+    }
+    return map
+  }, [stopsQuery.data])
+
   const vehicles: VehiclePosition[] = routeId
     ? (routeQuery.data?.vehicles ?? [])
     : (allQuery.data ?? [])
@@ -396,15 +408,19 @@ export function BusMap({ routeId, height = 480, onRouteFilter }: BusMapProps) {
           />
         ))}
 
-        {/* Bus markers */}
-        {vehicles.map((v) => (
-          <Marker
-            key={v.vehicleId}
-            position={[v.lat, v.lon]}
-            icon={busIcon(v.bearing, selectedVehicle?.vehicleId === v.vehicleId)}
-            eventHandlers={{ click: () => handleBusClick(v) }}
-          />
-        ))}
+        {/* Bus markers — colored by direction when route filter is active */}
+        {vehicles.map((v) => {
+          const dirKey = v.stopId ? stopDirMap.get(v.stopId) : undefined
+          const dirColor = DIR_COLORS[dirKey ?? ''] ?? '#00D4FF'
+          return (
+            <Marker
+              key={v.vehicleId}
+              position={[v.lat, v.lon]}
+              icon={busIcon(v.bearing, selectedVehicle?.vehicleId === v.vehicleId, dirColor)}
+              eventHandlers={{ click: () => handleBusClick(v) }}
+            />
+          )
+        })}
 
         {/* Auto-fit: Belgium for all-vehicles, route bounds for per-route */}
         {!routeId && <FitBelgiumOnce />}
