@@ -215,24 +215,13 @@ function StopInfoPanel({ stop, routeId, vehicles, shapeSegments, stopDirMap, onC
     return () => clearInterval(id)
   }, [])
 
-  // Find the vehicle matching the first upcoming arrival.
-  // Fall back to nearest vehicle by position if tripId doesn't match (different GTFS-RT feeds).
+  // Match the first upcoming arrival to a live vehicle by tripId.
+  // No fallback — distances are only shown when we can confirm it's the correct bus.
   const firstBus = useMemo(() => {
-    if (!vehicles.length) return null
     const firstTripId = arrivalsQuery.data?.[0]?.tripId
-    if (firstTripId) {
-      const match = vehicles.find((v) => v.tripId === firstTripId)
-      if (match) return match
-    }
-    // Fallback: nearest vehicle by straight-line distance
-    let nearest = vehicles[0]
-    let minD = haversineKm(vehicles[0].lat, vehicles[0].lon, stop.stop_lat, stop.stop_lon)
-    for (const v of vehicles.slice(1)) {
-      const d = haversineKm(v.lat, v.lon, stop.stop_lat, stop.stop_lon)
-      if (d < minD) { minD = d; nearest = v }
-    }
-    return nearest
-  }, [arrivalsQuery.data, vehicles, stop])
+    if (!firstTripId || !vehicles.length) return null
+    return vehicles.find((v) => v.tripId === firstTripId) ?? null
+  }, [arrivalsQuery.data, vehicles])
 
   // Straight-line distance from first bus to this stop
   const crowFliesKm = firstBus
@@ -285,22 +274,24 @@ function StopInfoPanel({ stop, routeId, vehicles, shapeSegments, stopDirMap, onC
         </Row>
       </div>
 
-      {/* Distances to first upcoming bus */}
-      {(crowFliesKm !== null || roadDistKm !== null) && (
+      {/* Distances to confirmed next bus (tripId match only) */}
+      {crowFliesKm !== null && (
         <div className="px-4 py-3 space-y-2 border-b border-border">
           <p className="text-xs text-muted font-medium uppercase tracking-wide">Prochain bus</p>
-          {crowFliesKm !== null && (
-            <Row icon={<Navigation className="h-3.5 w-3.5" />} label="Vol d'oiseau">
-              <span className="text-white">
-                {crowFliesKm < 1 ? `${Math.round(crowFliesKm * 1000)} m` : `${crowFliesKm.toFixed(1)} km`}
-              </span>
-            </Row>
-          )}
-          {roadDistKm !== null && (
+          <Row icon={<Navigation className="h-3.5 w-3.5" />} label="Vol d'oiseau">
+            <span className="text-white">
+              {crowFliesKm < 1 ? `${Math.round(crowFliesKm * 1000)} m` : `${crowFliesKm.toFixed(1)} km`}
+            </span>
+          </Row>
+          {roadDistKm !== null ? (
             <Row icon={<ArrowRight className="h-3.5 w-3.5" />} label="À parcourir">
               <span className="text-white">
                 {roadDistKm < 1 ? `${Math.round(roadDistKm * 1000)} m` : `${roadDistKm.toFixed(1)} km`}
               </span>
+            </Row>
+          ) : (
+            <Row icon={<ArrowRight className="h-3.5 w-3.5 opacity-40" />} label="À parcourir">
+              <span className="text-muted text-xs">bus proche de l'arrêt</span>
             </Row>
           )}
         </div>
