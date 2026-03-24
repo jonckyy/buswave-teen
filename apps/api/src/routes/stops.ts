@@ -282,7 +282,7 @@ stopsRouter.get('/:stopId/routes', async (c) => {
 
   if (error || !data) return c.json({ data: [] } satisfies ApiResponse<StopRoute[]>)
 
-  // Deduplicate by route_short_name + direction_id (multiple route_ids can share the same short name)
+  // One entry per route_short_name — direction is not relevant here (favorites track stop+line, not direction)
   const seen = new Map<string, StopRoute>()
   for (const row of data) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -292,14 +292,12 @@ stopsRouter.get('/:stopId/routes', async (c) => {
     const r = (t as any).routes
     if (!r) continue
     const shortName = r.route_short_name ?? t.route_id
-    const dirId = t.direction_id ?? 0
-    const key = `${shortName}:${dirId}`
-    if (!seen.has(key)) {
-      seen.set(key, {
+    if (!seen.has(shortName)) {
+      seen.set(shortName, {
         route_id: t.route_id,
         route_short_name: shortName,
         route_long_name: r.route_long_name ?? '',
-        direction_id: dirId,
+        direction_id: t.direction_id ?? 0,
         headsign: t.trip_headsign ?? '',
       })
     }

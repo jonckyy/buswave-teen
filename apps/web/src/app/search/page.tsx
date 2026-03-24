@@ -239,8 +239,7 @@ function StopRouteRow({ stop, route }: { stop: GtfsStop; route: StopRoute }) {
         <span className="min-w-[2.5rem] rounded bg-accent-cyan/10 px-2 py-0.5 text-center text-xs font-bold text-accent-cyan shrink-0">
           {route.route_short_name}
         </span>
-        <span className="text-xs text-muted shrink-0"><ArrowRight className="h-3 w-3 inline" /></span>
-        <span className="text-sm text-white truncate">{route.headsign || route.route_long_name}</span>
+        <span className="text-sm text-white truncate">{route.route_long_name || route.headsign}</span>
       </div>
       <button
         onClick={() =>
