@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Search, ChevronDown, ChevronRight, MapPin, Check, Plus, Star } from 'lucide-react'
+import { Search, ChevronDown, ChevronRight, MapPin, Check, Plus, Star, Bus } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useFavoritesStore } from '@/store/favorites'
 import { cn } from '@/lib/utils'
-import type { GtfsRoute, GtfsStop, RouteDirection } from '@buswave/shared'
+import type { GtfsRoute, GtfsStop, RouteDirection, VehiclePosition } from '@buswave/shared'
 
 // ── Line search with expandable stop picker ───────────────────────────────
 
@@ -73,7 +73,30 @@ function LineCard({ route }: { route: GtfsRoute }) {
     staleTime: 60_000,
   })
 
+  const { data: vehicles = [] } = useQuery({
+    queryKey: ['route-vehicles-search', route.route_id],
+    queryFn: () => api.vehicles(route.route_id),
+    enabled: expanded,
+    refetchInterval: 10_000,
+    staleTime: 5_000,
+  })
+
   const currentDir = directions.find((d) => d.directionId === activeDir) ?? directions[0]
+
+  // Map stopId → buses currently heading to that stop, filtered to current direction
+  const busesAtStop = useMemo<Map<string, VehiclePosition[]>>(() => {
+    const map = new Map<string, VehiclePosition[]>()
+    if (!currentDir) return map
+    const dirStopIds = new Set(currentDir.stops.map((s) => s.stop_id))
+    for (const v of vehicles) {
+      if (v.stopId && dirStopIds.has(v.stopId)) {
+        const arr = map.get(v.stopId) ?? []
+        arr.push(v)
+        map.set(v.stopId, arr)
+      }
+    }
+    return map
+  }, [vehicles, currentDir])
 
   function toggleStop(stopId: string) {
     setSelected((prev) => {
@@ -149,17 +172,36 @@ function LineCard({ route }: { route: GtfsRoute }) {
               )}
 
               {/* Stop list — max height with scroll */}
-              <div className="max-h-64 overflow-y-auto divide-y divide-border/50">
-                {(currentDir?.stops ?? []).map((stop) => (
-                  <StopRow
-                    key={stop.stop_id}
-                    stop={stop}
-                    routeId={route.route_id}
-                    routeShortName={route.route_short_name}
-                    selected={selected.has(stop.stop_id)}
-                    onToggle={() => toggleStop(stop.stop_id)}
-                  />
-                ))}
+              <div className="max-h-72 overflow-y-auto divide-y divide-border/50">
+                {(currentDir?.stops ?? []).map((stop) => {
+                  const buses = busesAtStop.get(stop.stop_id) ?? []
+                  return (
+                    <div key={stop.stop_id}>
+                      {/* Bus indicators for buses heading to this stop */}
+                      {buses.map((v) => (
+                        <div
+                          key={v.vehicleId}
+                          className="flex items-center gap-2 px-4 py-1.5 bg-accent-cyan/5 border-b border-border/50"
+                        >
+                          <div className="w-4 h-4 rounded-full bg-accent-cyan/20 flex items-center justify-center shrink-0">
+                            <Bus className="h-2.5 w-2.5 text-accent-cyan" />
+                          </div>
+                          <span className="text-xs text-accent-cyan font-medium">Bus {v.vehicleId}</span>
+                          {v.speed != null && (
+                            <span className="text-xs text-muted ml-auto">{Math.round(v.speed * 3.6)} km/h</span>
+                          )}
+                        </div>
+                      ))}
+                      <StopRow
+                        stop={stop}
+                        routeId={route.route_id}
+                        routeShortName={route.route_short_name}
+                        selected={selected.has(stop.stop_id)}
+                        onToggle={() => toggleStop(stop.stop_id)}
+                      />
+                    </div>
+                  )
+                })}
               </div>
 
               {/* Add selected button */}
