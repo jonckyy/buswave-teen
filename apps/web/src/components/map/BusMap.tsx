@@ -274,28 +274,61 @@ function StopInfoPanel({ stop, routeId, vehicles, shapeSegments, stopDirMap, onC
         </Row>
       </div>
 
-      {/* Distances to confirmed next bus (tripId match only) */}
-      {crowFliesKm !== null && (
-        <div className="px-4 py-3 space-y-2 border-b border-border">
-          <p className="text-xs text-muted font-medium uppercase tracking-wide">Prochain bus</p>
-          <Row icon={<Navigation className="h-3.5 w-3.5" />} label="Vol d'oiseau">
-            <span className="text-white">
-              {crowFliesKm < 1 ? `${Math.round(crowFliesKm * 1000)} m` : `${crowFliesKm.toFixed(1)} km`}
-            </span>
-          </Row>
-          {roadDistKm !== null ? (
-            <Row icon={<ArrowRight className="h-3.5 w-3.5" />} label="À parcourir">
+      {/* Distances + ETA to confirmed next bus (tripId match only) */}
+      {crowFliesKm !== null && (() => {
+        const TEC_AVG_KMH = 18
+        const firstArrival = arrivalsQuery.data?.[0]
+        const apiEtaSec = firstArrival ? Math.max(0, Math.round(firstArrival.predictedArrivalUnix - now)) : null
+        const distEtaSec = roadDistKm !== null ? Math.round((roadDistKm / TEC_AVG_KMH) * 3600) : null
+        const showBothEta = apiEtaSec !== null && distEtaSec !== null && Math.abs(apiEtaSec - distEtaSec) > 180
+        const combinedEtaSec = apiEtaSec !== null && distEtaSec !== null ? Math.round((apiEtaSec + distEtaSec) / 2) : null
+
+        function fmtEta(sec: number) {
+          const m = Math.floor(sec / 60)
+          const s = sec % 60
+          return m > 0 ? `${m} min ${s} s` : `${s} s`
+        }
+
+        return (
+          <div className="px-4 py-3 space-y-2 border-b border-border">
+            <p className="text-xs text-muted font-medium uppercase tracking-wide">Prochain bus</p>
+            <Row icon={<Navigation className="h-3.5 w-3.5" />} label="Vol d'oiseau" sub="ligne droite GPS">
               <span className="text-white">
-                {roadDistKm < 1 ? `${Math.round(roadDistKm * 1000)} m` : `${roadDistKm.toFixed(1)} km`}
+                {crowFliesKm < 1 ? `${Math.round(crowFliesKm * 1000)} m` : `${crowFliesKm.toFixed(1)} km`}
               </span>
             </Row>
-          ) : (
-            <Row icon={<ArrowRight className="h-3.5 w-3.5 opacity-40" />} label="À parcourir">
-              <span className="text-muted text-xs">bus proche de l'arrêt</span>
-            </Row>
-          )}
-        </div>
-      )}
+            {roadDistKm !== null ? (
+              <Row icon={<ArrowRight className="h-3.5 w-3.5" />} label="À parcourir" sub="tracé de la ligne">
+                <span className="text-white">
+                  {roadDistKm < 1 ? `${Math.round(roadDistKm * 1000)} m` : `${roadDistKm.toFixed(1)} km`}
+                </span>
+              </Row>
+            ) : (
+              <Row icon={<ArrowRight className="h-3.5 w-3.5 opacity-40" />} label="À parcourir" sub="tracé de la ligne">
+                <span className="text-muted text-xs">bus proche de l'arrêt</span>
+              </Row>
+            )}
+            {showBothEta ? (
+              <>
+                <Row icon={<Clock className="h-3.5 w-3.5" />} label="ETA GTFS" sub="temps API">
+                  <span className="text-white">{fmtEta(apiEtaSec!)}</span>
+                </Row>
+                <Row icon={<Clock className="h-3.5 w-3.5 opacity-60" />} label="ETA dist." sub="à 18 km/h">
+                  <span className="text-muted">{fmtEta(distEtaSec!)}</span>
+                </Row>
+              </>
+            ) : combinedEtaSec !== null ? (
+              <Row icon={<Clock className="h-3.5 w-3.5" />} label="ETA" sub="GTFS + distance">
+                <span className="text-accent-cyan font-semibold">{fmtEta(combinedEtaSec)}</span>
+              </Row>
+            ) : apiEtaSec !== null ? (
+              <Row icon={<Clock className="h-3.5 w-3.5" />} label="ETA" sub="temps API">
+                <span className="text-accent-cyan font-semibold">{fmtEta(apiEtaSec)}</span>
+              </Row>
+            ) : null}
+          </div>
+        )
+      })()}
 
       {/* Arrivals */}
       <div className="px-4 py-3">
@@ -306,10 +339,12 @@ function StopInfoPanel({ stop, routeId, vehicles, shapeSegments, stopDirMap, onC
           <p className="text-xs text-muted">Aucun passage prévu</p>
         ) : (
           <div className="space-y-2 max-h-48 overflow-y-auto">
-            {arrivalsQuery.data.slice(0, 6).map((a) => {
+            {arrivalsQuery.data.slice(0, 6).map((a, index) => {
               const secsLeft = Math.max(0, Math.round(a.predictedArrivalUnix - now))
               const minsLeft = Math.floor(secsLeft / 60)
-              const countdown = secsLeft < 60 ? '< 1 min' : `${minsLeft} min`
+              const countdown = index === 0
+                ? (minsLeft > 0 ? `${minsLeft} min ${secsLeft % 60} s` : `${secsLeft} s`)
+                : (secsLeft < 60 ? '< 1 min' : `${minsLeft} min`)
               const time = new Date(a.predictedArrivalUnix * 1000).toLocaleTimeString('fr-BE', {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -336,11 +371,14 @@ function StopInfoPanel({ stop, routeId, vehicles, shapeSegments, stopDirMap, onC
   )
 }
 
-function Row({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+function Row({ icon, label, sub, children }: { icon: React.ReactNode; label: string; sub?: string; children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2">
       <span className="text-muted mt-0.5 shrink-0">{icon}</span>
-      <span className="text-muted w-20 shrink-0">{label}</span>
+      <span className="w-20 shrink-0">
+        <span className="text-muted">{label}</span>
+        {sub && <span className="block text-[10px] text-muted/60 leading-tight">{sub}</span>}
+      </span>
       <span className="flex items-center gap-1 min-w-0">{children}</span>
     </div>
   )
