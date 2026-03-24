@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 import { Search, X } from 'lucide-react'
@@ -20,10 +21,28 @@ const BusMap = dynamic(() => import('@/components/map/BusMap').then((m) => m.Bus
 })
 
 export default function MapPage() {
+  const searchParams = useSearchParams()
+  const initialRouteId = searchParams.get('routeId')
+  const initialStopId = searchParams.get('stopId')
+
   const [query, setQuery] = useState('')
   const [selectedRoute, setSelectedRoute] = useState<GtfsRoute | null>(null)
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
+
+  // Initialize route from URL param
+  const { data: initialRouteData } = useQuery({
+    queryKey: ['route-live-init', initialRouteId],
+    queryFn: () => api.routeLive(initialRouteId!),
+    enabled: !!initialRouteId && !selectedRoute,
+    staleTime: 60_000,
+  })
+  useEffect(() => {
+    if (initialRouteData && !selectedRoute) {
+      setSelectedRoute(initialRouteData.route)
+      setQuery(`${initialRouteData.route.route_short_name} — ${initialRouteData.route.route_long_name}`)
+    }
+  }, [initialRouteData, selectedRoute])
 
   const { data: routes = [] } = useQuery({
     queryKey: ['map-route-search', query],
@@ -123,7 +142,7 @@ export default function MapPage() {
         )}
       </div>
 
-      <BusMap routeId={selectedRoute?.route_id} height={600} onRouteFilter={handleRouteFilter} />
+      <BusMap routeId={selectedRoute?.route_id} height={600} onRouteFilter={handleRouteFilter} initialStopId={initialStopId ?? undefined} />
     </div>
   )
 }

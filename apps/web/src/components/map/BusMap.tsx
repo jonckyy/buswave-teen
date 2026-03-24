@@ -390,11 +390,14 @@ interface BusMapProps {
   height?: number
   /** Called when user clicks a bus — lets parent set the route filter */
   onRouteFilter?: (routeId: string) => void
+  /** Auto-open the stop panel for this stopId once stops are loaded */
+  initialStopId?: string
 }
 
-export function BusMap({ routeId, height = 480, onRouteFilter }: BusMapProps) {
+export function BusMap({ routeId, height = 480, onRouteFilter, initialStopId }: BusMapProps) {
   const [selectedVehicle, setSelectedVehicle] = useState<VehiclePosition | null>(null)
   const [selectedStop, setSelectedStop] = useState<GtfsStop | null>(null)
+  const hasAutoSelected = useRef(false)
 
   // Details for the selected bus (line name, headsign, next stop name)
   const detailsQuery = useQuery({
@@ -433,6 +436,18 @@ export function BusMap({ routeId, height = 480, onRouteFilter }: BusMapProps) {
     enabled: !!routeId,
     staleTime: 60_000,
   })
+
+  // Auto-open stop panel when navigating from a favorite
+  useEffect(() => {
+    if (hasAutoSelected.current || !initialStopId || !stopsQuery.data) return
+    const allStops = stopsQuery.data.flatMap((d) => d.stops)
+    const stop = allStops.find((s) => s.stop_id === initialStopId)
+    if (stop) {
+      setSelectedStop(stop)
+      setSelectedVehicle(null)
+      hasAutoSelected.current = true
+    }
+  }, [initialStopId, stopsQuery.data])
 
   // Stops deduplicated with direction info for color-coding
   const stopsWithDirection = useMemo<Array<{ stop: GtfsStop; dirKey: string }>>(() => {

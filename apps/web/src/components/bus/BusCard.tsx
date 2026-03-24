@@ -1,12 +1,13 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { Heart, MapPin, AlertCircle, X } from 'lucide-react'
+import { MapPin, X, Map } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useCountdown, formatCountdown } from '@/hooks/useCountdown'
 import { useFavoritesStore } from '@/store/favorites'
 import { cn, delayColor, formatDelay } from '@/lib/utils'
-import type { StopArrival, GtfsStop } from '@buswave/shared'
+import type { StopArrival } from '@buswave/shared'
 
 interface BusCardProps {
   stopId: string
@@ -42,7 +43,15 @@ function ArrivalRow({ arrival }: { arrival: StopArrival }) {
 }
 
 export function BusCard({ stopId, routeId }: BusCardProps) {
+  const router = useRouter()
   const removeFavorite = useFavoritesStore((s) => s.removeFavorite)
+
+  function goToMap(e: React.MouseEvent) {
+    e.stopPropagation()
+    const params = new URLSearchParams({ stopId })
+    if (routeId) params.set('routeId', routeId)
+    router.push(`/map?${params.toString()}`)
+  }
 
   const { data: stopData } = useQuery({
     queryKey: ['stop', stopId],
@@ -59,13 +68,16 @@ export function BusCard({ stopId, routeId }: BusCardProps) {
   const next3 = arrivals.slice(0, 3)
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 shadow-md">
+    <div
+      onClick={goToMap}
+      className="rounded-xl border border-border bg-card p-4 shadow-md cursor-pointer hover:border-accent-cyan/40 transition-colors"
+    >
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <MapPin className="h-4 w-4 text-accent-cyan shrink-0" />
-          <div>
-            <p className="font-semibold text-white leading-tight">
+          <div className="min-w-0">
+            <p className="font-semibold text-white leading-tight truncate">
               {stopData?.stop_name ?? stopId}
             </p>
             {routeId && (
@@ -73,13 +85,16 @@ export function BusCard({ stopId, routeId }: BusCardProps) {
             )}
           </div>
         </div>
-        <button
-          onClick={() => removeFavorite(stopId, routeId)}
-          className="text-muted hover:text-large-delay transition-colors"
-          aria-label="Retirer des favoris"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <Map className="h-3.5 w-3.5 text-muted" />
+          <button
+            onClick={(e) => { e.stopPropagation(); removeFavorite(stopId, routeId) }}
+            className="text-muted hover:text-large-delay transition-colors p-0.5"
+            aria-label="Retirer des favoris"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Arrivals */}
