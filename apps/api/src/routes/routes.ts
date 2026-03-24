@@ -25,6 +25,20 @@ routesRouter.get('/', async (c) => {
   return c.json({ data: (data ?? []) as GtfsRoute[] } satisfies ApiResponse<GtfsRoute[]>)
 })
 
+/** GET /api/realtime/routes/names?ids=A,B,C — names for a list of route IDs */
+routesRouter.get('/names', async (c) => {
+  const ids = c.req.query('ids')?.split(',').filter(Boolean) ?? []
+  if (!ids.length) return c.json({ data: [] } satisfies ApiResponse<GtfsRoute[]>)
+
+  const { data, error } = await supabase
+    .from('routes')
+    .select('route_id, route_short_name, route_long_name')
+    .in('route_id', ids)
+
+  if (error) return c.json({ data: [] } satisfies ApiResponse<GtfsRoute[]>)
+  return c.json({ data: (data ?? []) as GtfsRoute[] } satisfies ApiResponse<GtfsRoute[]>)
+})
+
 /** GET /api/realtime/route-live?routeId=XXX */
 routesRouter.get('/route-live', async (c) => {
   const routeId = c.req.query('routeId')

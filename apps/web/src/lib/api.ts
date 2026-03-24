@@ -68,6 +68,9 @@ export const api = {
   searchRoutes: (q: string) =>
     apiFetch<GtfsRoute[]>(`/api/realtime/routes?q=${encodeURIComponent(q)}`),
 
+  routeNames: (ids: string[]) =>
+    apiFetch<GtfsRoute[]>(`/api/realtime/routes/names?ids=${ids.map(encodeURIComponent).join(',')}`),
+
   routeStops: (routeId: string) =>
     apiFetch<RouteDirection[]>(`/api/realtime/routes/route-stops?routeId=${encodeURIComponent(routeId)}`),
 

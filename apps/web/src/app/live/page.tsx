@@ -34,6 +34,21 @@ export default function LivePage() {
       .sort((a, b) => b.count - a.count || a.routeId.localeCompare(b.routeId, undefined, { numeric: true }))
   }, [vehicles])
 
+  const activeRouteIds = useMemo(() => lines.map((l) => l.routeId), [lines])
+
+  const { data: routeNames = [] } = useQuery({
+    queryKey: ['route-names-live', activeRouteIds.join(',')],
+    queryFn: () => api.routeNames(activeRouteIds),
+    enabled: activeRouteIds.length > 0,
+    staleTime: 60_000,
+  })
+
+  const nameMap = useMemo(() => {
+    const m = new Map<string, { short: string; long: string }>()
+    for (const r of routeNames) m.set(r.route_id, { short: r.route_short_name, long: r.route_long_name })
+    return m
+  }, [routeNames])
+
   const updatedAt = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     : null
@@ -79,39 +94,48 @@ export default function LivePage() {
         </div>
       ) : tab === 'lignes' ? (
         <div className="space-y-2">
-          {lines.map(({ routeId, count }) => (
-            <Link
-              key={routeId}
-              href={`/map?routeId=${encodeURIComponent(routeId)}`}
-              className="flex items-center gap-4 rounded-xl border border-border bg-card px-4 py-3 hover:border-accent-cyan/40 transition-colors"
-            >
-              <span className="min-w-[3rem] rounded bg-accent-cyan/10 px-2 py-1 text-center text-sm font-bold text-accent-cyan shrink-0">
-                {routeId}
-              </span>
-              <div className="flex-1 flex items-center gap-1.5">
-                {Array.from({ length: Math.min(count, 8) }).map((_, i) => (
-                  <Bus key={i} className="h-3.5 w-3.5 text-accent-cyan/60" />
-                ))}
-                {count > 8 && <span className="text-xs text-muted">+{count - 8}</span>}
-              </div>
-              <span className="text-sm font-semibold text-white shrink-0">{count} bus</span>
-            </Link>
-          ))}
+          {lines.map(({ routeId, count }) => {
+            const name = nameMap.get(routeId)
+            return (
+              <Link
+                key={routeId}
+                href={`/map?routeId=${encodeURIComponent(routeId)}`}
+                className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:border-accent-cyan/40 transition-colors"
+              >
+                <span className="min-w-[3rem] rounded bg-accent-cyan/10 px-2 py-1 text-center text-sm font-bold text-accent-cyan shrink-0">
+                  {name?.short ?? routeId}
+                </span>
+                <span className="text-sm text-white truncate flex-1 min-w-0">
+                  {name?.long ?? ''}
+                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {Array.from({ length: Math.min(count, 6) }).map((_, i) => (
+                    <Bus key={i} className="h-3 w-3 text-accent-cyan/60" />
+                  ))}
+                  {count > 6 && <span className="text-xs text-muted">+{count - 6}</span>}
+                  <span className="text-sm font-semibold text-white ml-1">{count}</span>
+                </div>
+              </Link>
+            )
+          })}
         </div>
       ) : (
         <div className="space-y-1.5">
-          {sortedVehicles.map((v) => (
+          {sortedVehicles.map((v) => {
+            const name = nameMap.get(v.routeId)
+            return (
             <Link
               key={v.vehicleId}
               href={`/map?routeId=${encodeURIComponent(v.routeId)}`}
               className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-2.5 hover:border-accent-cyan/40 transition-colors"
             >
               <span className="min-w-[2.5rem] rounded bg-accent-cyan/10 px-2 py-0.5 text-center text-xs font-bold text-accent-cyan shrink-0">
-                {v.routeId}
+                {name?.short ?? v.routeId}
               </span>
-              <span className="flex items-center gap-1.5 text-sm text-white min-w-0">
+              <span className="flex items-center gap-1.5 min-w-0 flex-1">
                 <Bus className="h-3.5 w-3.5 text-muted shrink-0" />
-                {v.vehicleId}
+                <span className="text-sm text-white">{v.vehicleId}</span>
+                {name?.long && <span className="text-xs text-muted truncate">— {name.long}</span>}
               </span>
               <div className="ml-auto flex items-center gap-3 shrink-0">
                 {v.speed != null && (
@@ -127,7 +151,8 @@ export default function LivePage() {
                 )}
               </div>
             </Link>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
