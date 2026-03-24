@@ -43,8 +43,15 @@ function busIcon(bearing?: number, selected = false) {
   })
 }
 
-function stopMarkerIcon(selected = false) {
-  const bg = selected ? '#00D4FF' : '#8892B0'
+const DIR_COLORS: Record<string, string> = {
+  '0': '#00D4FF',   // cyan  — direction 0
+  '1': '#A78BFA',   // purple — direction 1
+  'both': '#8892B0', // muted  — shared stop
+}
+
+function stopMarkerIcon(color: string, selected = false) {
+  const bg = selected ? '#FFFFFF' : color
+  const shadow = selected ? '0 0 6px rgba(255,255,255,0.7)' : '0 1px 4px rgba(0,0,0,0.4)'
   return L.divIcon({
     className: '',
     html: `<div style="
@@ -52,7 +59,7 @@ function stopMarkerIcon(selected = false) {
       background:${bg};
       border:1.5px solid #0A0E17;
       border-radius:2px;
-      box-shadow:0 1px 4px rgba(0,0,0,0.4);
+      box-shadow:${shadow};
     "></div>`,
     iconSize: [10, 10],
     iconAnchor: [5, 5],
@@ -312,16 +319,18 @@ export function BusMap({ routeId, height = 480, onRouteFilter }: BusMapProps) {
     staleTime: 60_000,
   })
 
-  // Deduplicated stops across all directions
-  const allStops = useMemo<GtfsStop[]>(() => {
+  // Stops deduplicated with direction info for color-coding
+  const stopsWithDirection = useMemo<Array<{ stop: GtfsStop; dirKey: string }>>(() => {
+    const inDir0 = new Set(stopsQuery.data?.find((d) => d.directionId === 0)?.stops.map((s) => s.stop_id) ?? [])
+    const inDir1 = new Set(stopsQuery.data?.find((d) => d.directionId === 1)?.stops.map((s) => s.stop_id) ?? [])
     const seen = new Set<string>()
-    const result: GtfsStop[] = []
+    const result: Array<{ stop: GtfsStop; dirKey: string }> = []
     for (const dir of (stopsQuery.data ?? [])) {
       for (const stop of dir.stops) {
-        if (!seen.has(stop.stop_id)) {
-          seen.add(stop.stop_id)
-          result.push(stop)
-        }
+        if (seen.has(stop.stop_id)) continue
+        seen.add(stop.stop_id)
+        const inBoth = inDir0.has(stop.stop_id) && inDir1.has(stop.stop_id)
+        result.push({ stop, dirKey: inBoth ? 'both' : String(dir.directionId) })
       }
     }
     return result
@@ -377,12 +386,12 @@ export function BusMap({ routeId, height = 480, onRouteFilter }: BusMapProps) {
           />
         )}
 
-        {/* Stop markers (per-route mode only) */}
-        {allStops.map((stop) => (
+        {/* Stop markers (per-route mode only) — colored by direction */}
+        {stopsWithDirection.map(({ stop, dirKey }) => (
           <Marker
             key={stop.stop_id}
             position={[stop.stop_lat, stop.stop_lon]}
-            icon={stopMarkerIcon(selectedStop?.stop_id === stop.stop_id)}
+            icon={stopMarkerIcon(DIR_COLORS[dirKey] ?? '#8892B0', selectedStop?.stop_id === stop.stop_id)}
             eventHandlers={{ click: () => handleStopClick(stop) }}
           />
         ))}
@@ -419,6 +428,18 @@ export function BusMap({ routeId, height = 480, onRouteFilter }: BusMapProps) {
           routeId={routeId}
           onClose={() => setSelectedStop(null)}
         />
+      )}
+
+      {/* Direction legend (shown only when route is filtered and has 2 directions) */}
+      {routeId && stopsQuery.data && stopsQuery.data.length > 1 && (
+        <div className="absolute bottom-3 left-3 z-[1000] flex flex-col gap-1 rounded-lg bg-background/80 backdrop-blur px-3 py-2 text-xs">
+          {stopsQuery.data.map((dir) => (
+            <div key={dir.directionId} className="flex items-center gap-2">
+              <span className="inline-block w-2.5 h-2.5 rounded-sm border border-[#0A0E17]" style={{ background: DIR_COLORS[String(dir.directionId)] ?? '#8892B0' }} />
+              <span className="text-muted truncate max-w-[160px]">→ {dir.headsign}</span>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Status bar */}

@@ -52,7 +52,17 @@ stopsRouter.get('/:stopId/arrivals', async (c) => {
     stopSequence: number
     delaySeconds: number
   }
+  // Trips with RT data but no direct stopTimeUpdate for this stop — we'll estimate their arrival
+  type EstimatedTripInfo = {
+    tripId: string
+    routeId: string
+    startDate: string
+    bestDelay: number
+    minRTSequence: number  // minimum stop_sequence in RT updates (bus is at/near this)
+  }
+
   const candidates: Candidate[] = []
+  const estimatedInfos: EstimatedTripInfo[] = []
 
   for (const entity of entities) {
     const tu = entity.tripUpdate
@@ -65,20 +75,71 @@ stopsRouter.get('/:stopId/arrivals', async (c) => {
     const stopTimeUpdates: any[] = tu.stopTimeUpdate ?? []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const stu = stopTimeUpdates.find((s: any) => s.stopId === stopId)
-    if (!stu) continue
 
-    const rawDelay = stu.arrival?.delay ?? stu.departure?.delay ?? 0
-    // TEC GTFS-RT emits delay=-60 as a systematic default for all trips.
-    // Treat |delay| ≤ 60s as "on schedule" to avoid a spurious 1-minute offset.
-    const delaySeconds = Math.abs(rawDelay) <= 60 ? 0 : rawDelay
+    if (stu) {
+      const rawDelay = stu.arrival?.delay ?? stu.departure?.delay ?? 0
+      // TEC GTFS-RT emits delay=-60 as a systematic default for all trips.
+      // Treat |delay| ≤ 60s as "on schedule" to avoid a spurious 1-minute offset.
+      const delaySeconds = Math.abs(rawDelay) <= 60 ? 0 : rawDelay
+      candidates.push({
+        tripId: tu.trip?.tripId ?? '',
+        routeId: tu.trip?.routeId ?? '',
+        startDate: tu.trip?.startDate ?? '',
+        stopSequence: stu.stopSequence ?? 0,
+        delaySeconds,
+      })
+    } else if (stopTimeUpdates.length > 0) {
+      // No direct match — bus may not have reached this stop yet.
+      // Estimate arrival using the trip's current delay + scheduled time from GTFS static.
+      const sequences = stopTimeUpdates
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((s: any) => s.stopSequence as number)
+        .filter((n) => n > 0)
+      const minRTSequence = sequences.length > 0 ? Math.min(...sequences) : 0
 
-    candidates.push({
-      tripId: tu.trip?.tripId ?? '',
-      routeId: tu.trip?.routeId ?? '',
-      startDate: tu.trip?.startDate ?? '',
-      stopSequence: stu.stopSequence ?? 0,
-      delaySeconds,
-    })
+      // Use delay from the last (highest-sequence) stopTimeUpdate as best estimate
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const lastSTU = stopTimeUpdates.reduce((best: any, s: any) =>
+        (s.stopSequence ?? 0) > (best.stopSequence ?? 0) ? s : best,
+        stopTimeUpdates[0]
+      )
+      const rawDelay = lastSTU.arrival?.delay ?? lastSTU.departure?.delay ?? 0
+      const bestDelay = Math.abs(rawDelay) <= 60 ? 0 : rawDelay
+
+      estimatedInfos.push({
+        tripId: tu.trip?.tripId ?? '',
+        routeId: tu.trip?.routeId ?? '',
+        startDate: tu.trip?.startDate ?? '',
+        bestDelay,
+        minRTSequence,
+      })
+    }
+  }
+
+  // For estimated trips: check if they serve this stop AND bus hasn't passed it yet
+  if (estimatedInfos.length > 0) {
+    const estTripIds = [...new Set(estimatedInfos.map((e) => e.tripId))]
+    const { data: estStopTimes } = await supabase
+      .from('stop_times')
+      .select('trip_id, stop_sequence')
+      .in('trip_id', estTripIds)
+      .eq('stop_id', stopId)
+
+    for (const st of estStopTimes ?? []) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const r = st as any
+      const info = estimatedInfos.find((e) => e.tripId === r.trip_id)
+      if (!info) continue
+      // Skip if bus has already passed this stop (RT sequence > target sequence)
+      if (info.minRTSequence > 0 && r.stop_sequence < info.minRTSequence) continue
+      candidates.push({
+        tripId: info.tripId,
+        routeId: info.routeId,
+        startDate: info.startDate,
+        stopSequence: r.stop_sequence,
+        delaySeconds: info.bestDelay,
+      })
+    }
   }
 
   if (candidates.length === 0) {

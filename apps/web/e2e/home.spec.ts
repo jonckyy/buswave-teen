@@ -17,7 +17,7 @@ test.describe('Home page', () => {
     await page.goto('/')
     await expect(page.getByText('Live buses')).toBeVisible()
     // bus count should be a number > 0
-    const busRow = page.locator('div', { has: page.getByText('Live buses') })
+    const busRow = page.locator('div.flex.items-center', { hasText: /^Live buses/ })
     await expect(busRow.locator('span.text-\\[\\#00D4FF\\]')).toBeVisible({ timeout: 15_000 })
   })
 
