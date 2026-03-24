@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { Search, ChevronDown, ChevronRight, MapPin, Check, Plus, Star, Bus, ArrowRight } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -325,8 +326,20 @@ function StopSearchResult({ stop, activeRouteIds }: { stop: GtfsStop; activeRout
 type Mode = 'ligne' | 'arret'
 
 export default function SearchPage() {
-  const [mode, setMode] = useState<Mode>('ligne')
-  const [query, setQuery] = useState('')
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const [mode, setMode] = useState<Mode>((searchParams.get('mode') as Mode) ?? 'ligne')
+  const [query, setQuery] = useState(searchParams.get('q') ?? '')
+
+  // Sync state to URL without adding history entries
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (mode !== 'ligne') params.set('mode', mode)
+    if (query) params.set('q', query)
+    const search = params.toString()
+    router.replace(search ? `/search?${search}` : '/search', { scroll: false })
+  }, [mode, query, router])
 
   const { data: routes = [], isLoading: loadingRoutes } = useQuery({
     queryKey: ['routes-search', query],
@@ -367,7 +380,7 @@ export default function SearchPage() {
         {(['ligne', 'arret'] as Mode[]).map((m) => (
           <button
             key={m}
-            onClick={() => { setMode(m); setQuery('') }}
+            onClick={() => { setMode(m); setQuery(mode === m ? query : '') }}
             className={cn(
               'flex-1 rounded-lg py-2 text-sm font-medium transition-colors',
               mode === m
