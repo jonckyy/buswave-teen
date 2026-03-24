@@ -26,29 +26,29 @@ function bearingToCompass(deg: number): string {
   return dirs[Math.round(deg / 45) % 8]
 }
 
-function busIcon(bearing?: number, selected = false, dirColor = '#00D4FF') {
-  const color = selected ? '#FF9100' : dirColor
-  const glowColor = selected ? 'rgba(255,145,0,0.6)' : `${dirColor}66`
-  const rotation = (bearing ?? 0) - 45
-  return L.divIcon({
-    className: '',
-    html: `<div style="
-      width:26px;height:26px;
-      background:${color};
-      border:2px solid #0A0E17;
-      border-radius:50% 50% 50% 0;
-      transform:rotate(${rotation}deg);
-      box-shadow:0 2px 8px ${glowColor};
-    "></div>`,
-    iconSize: [26, 26],
-    iconAnchor: [13, 13],
-  })
-}
-
 const DIR_COLORS: Record<string, string> = {
-  '0': '#00D4FF',   // cyan  — direction 0
+  '0': '#00E676',   // green  — direction 0
   '1': '#A78BFA',   // purple — direction 1
   'both': '#8892B0', // muted  — shared stop
+}
+
+function busIcon(bearing?: number, selected = false, dirColor = '#00E676') {
+  const color = selected ? '#FF9100' : dirColor
+  const glow = selected ? 'rgba(255,145,0,0.5)' : `${dirColor}55`
+  const rotation = bearing ?? 0
+  return L.divIcon({
+    className: '',
+    html: `<svg width="22" height="28" viewBox="0 0 22 28" xmlns="http://www.w3.org/2000/svg"
+      style="transform:rotate(${rotation}deg);filter:drop-shadow(0 2px 5px ${glow});overflow:visible;display:block">
+      <polygon points="11,0 18,9 4,9" fill="${color}"/>
+      <rect x="2" y="8" width="18" height="16" rx="3" fill="${color}"/>
+      <rect x="4" y="10" width="14" height="6" rx="1.5" fill="rgba(10,14,23,0.45)"/>
+      <circle cx="7" cy="24" r="2.5" fill="rgba(10,14,23,0.55)"/>
+      <circle cx="15" cy="24" r="2.5" fill="rgba(10,14,23,0.55)"/>
+    </svg>`,
+    iconSize: [22, 28],
+    iconAnchor: [11, 14],
+  })
 }
 
 function stopMarkerIcon(color: string, selected = false) {
