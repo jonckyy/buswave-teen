@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { MapPin, X, Map } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -43,15 +43,11 @@ function ArrivalRow({ arrival }: { arrival: StopArrival }) {
 }
 
 export function BusCard({ stopId, routeId }: BusCardProps) {
-  const router = useRouter()
   const removeFavorite = useFavoritesStore((s) => s.removeFavorite)
 
-  function goToMap(e: React.MouseEvent) {
-    e.stopPropagation()
-    const params = new URLSearchParams({ stopId })
-    if (routeId) params.set('routeId', routeId)
-    router.push(`/map?${params.toString()}`)
-  }
+  const mapParams = new URLSearchParams({ stopId })
+  if (routeId) mapParams.set('routeId', routeId)
+  const mapHref = `/map?${mapParams.toString()}`
 
   const { data: stopData } = useQuery({
     queryKey: ['stop', stopId],
@@ -68,9 +64,9 @@ export function BusCard({ stopId, routeId }: BusCardProps) {
   const next3 = arrivals.slice(0, 3)
 
   return (
-    <div
-      onClick={goToMap}
-      className="rounded-xl border border-border bg-card p-4 shadow-md cursor-pointer hover:border-accent-cyan/40 transition-colors"
+    <Link
+      href={mapHref}
+      className="block rounded-xl border border-border bg-card p-4 shadow-md cursor-pointer hover:border-accent-cyan/40 transition-colors"
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-3">
@@ -88,7 +84,7 @@ export function BusCard({ stopId, routeId }: BusCardProps) {
         <div className="flex items-center gap-1 shrink-0">
           <Map className="h-3.5 w-3.5 text-muted" />
           <button
-            onClick={(e) => { e.stopPropagation(); removeFavorite(stopId, routeId) }}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeFavorite(stopId, routeId) }}
             className="text-muted hover:text-large-delay transition-colors p-0.5"
             aria-label="Retirer des favoris"
           >
@@ -113,6 +109,6 @@ export function BusCard({ stopId, routeId }: BusCardProps) {
       ) : (
         <p className="text-sm text-muted text-center py-2">Aucun passage prévu</p>
       )}
-    </div>
+    </Link>
   )
 }

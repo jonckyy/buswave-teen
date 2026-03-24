@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { Search, ChevronDown, ChevronRight, MapPin, Check, Plus, Star, Bus, ArrowRight } from 'lucide-react'
@@ -326,6 +326,14 @@ function StopSearchResult({ stop, activeRouteIds }: { stop: GtfsStop; activeRout
 type Mode = 'ligne' | 'arret'
 
 export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="h-16 rounded-xl bg-card animate-pulse" />}>
+      <SearchPageInner />
+    </Suspense>
+  )
+}
+
+function SearchPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
 

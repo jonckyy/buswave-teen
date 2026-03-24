@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 
@@ -42,6 +43,7 @@ export function DebugStatus() {
           loading={loadingVehicles}
           ok={gtfsOk}
           value={debug?.entityCount !== undefined ? String(debug.entityCount) : undefined}
+          href="/live"
         />
       </div>
     </div>
@@ -53,24 +55,30 @@ function StatusRow({
   loading,
   ok,
   value,
+  href,
 }: {
   label: string
   loading: boolean
   ok: boolean
   value?: string
+  href?: string
 }) {
   const dot = loading ? '…' : ok ? '●' : '●'
   const dotColor = loading ? 'text-[#8892B0]' : ok ? 'text-[#00E676]' : 'text-[#FF3D71]'
   const status = loading ? 'checking' : ok ? 'ok' : 'error'
+
+  const valueEl = value !== undefined && (
+    href
+      ? <Link href={href} className="text-[#00D4FF] ml-1 hover:underline">{value}</Link>
+      : <span className="text-[#00D4FF] ml-1">{value}</span>
+  )
 
   return (
     <div className="flex items-center gap-2">
       <span className={`${dotColor} text-[10px]`}>{dot}</span>
       <span className="text-[#8892B0] w-28">{label}</span>
       <span className={ok && !loading ? 'text-white/70' : 'text-[#8892B0]'}>{status}</span>
-      {value !== undefined && (
-        <span className="text-[#00D4FF] ml-1">{value}</span>
-      )}
+      {valueEl}
     </div>
   )
 }
