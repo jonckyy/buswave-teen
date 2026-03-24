@@ -325,6 +325,10 @@ function StopSearchResult({ stop, activeRouteIds }: { stop: GtfsStop; activeRout
 
 type Mode = 'ligne' | 'arret'
 
+// Module-level cache — survives client-side navigation, reset on full page reload
+let _cachedMode: Mode = 'ligne'
+let _cachedQuery = ''
+
 export default function SearchPage() {
   return (
     <Suspense fallback={<div className="h-16 rounded-xl bg-card animate-pulse" />}>
@@ -337,11 +341,14 @@ function SearchPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const [mode, setMode] = useState<Mode>((searchParams.get('mode') as Mode) ?? 'ligne')
-  const [query, setQuery] = useState(searchParams.get('q') ?? '')
+  // URL params take priority (shared link / browser back), else use in-memory cache
+  const [mode, setMode] = useState<Mode>((searchParams.get('mode') as Mode) ?? _cachedMode)
+  const [query, setQuery] = useState(searchParams.get('q') ?? _cachedQuery)
 
-  // Sync state to URL without adding history entries
+  // Keep cache + URL in sync
   useEffect(() => {
+    _cachedMode = mode
+    _cachedQuery = query
     const params = new URLSearchParams()
     if (mode !== 'ligne') params.set('mode', mode)
     if (query) params.set('q', query)
