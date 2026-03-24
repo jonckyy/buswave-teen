@@ -200,12 +200,24 @@ function StopInfoPanel({ stop, routeId, vehicles, shapeSegments, stopDirMap, onC
     return () => clearInterval(id)
   }, [])
 
-  // Find the vehicle matching the first upcoming arrival
+  // Find the vehicle matching the first upcoming arrival.
+  // Fall back to nearest vehicle by position if tripId doesn't match (different GTFS-RT feeds).
   const firstBus = useMemo(() => {
+    if (!vehicles.length) return null
     const firstTripId = arrivalsQuery.data?.[0]?.tripId
-    if (!firstTripId || !vehicles.length) return null
-    return vehicles.find((v) => v.tripId === firstTripId) ?? null
-  }, [arrivalsQuery.data, vehicles])
+    if (firstTripId) {
+      const match = vehicles.find((v) => v.tripId === firstTripId)
+      if (match) return match
+    }
+    // Fallback: nearest vehicle by straight-line distance
+    let nearest = vehicles[0]
+    let minD = haversineKm(vehicles[0].lat, vehicles[0].lon, stop.stop_lat, stop.stop_lon)
+    for (const v of vehicles.slice(1)) {
+      const d = haversineKm(v.lat, v.lon, stop.stop_lat, stop.stop_lon)
+      if (d < minD) { minD = d; nearest = v }
+    }
+    return nearest
+  }, [arrivalsQuery.data, vehicles, stop])
 
   // Straight-line distance from first bus to this stop
   const crowFliesKm = firstBus
@@ -401,7 +413,12 @@ export function BusMap({ routeId, height = 480, onRouteFilter }: BusMapProps) {
     ? (routeQuery.data?.vehicles ?? [])
     : (allQuery.data ?? [])
 
-  const shapeSegments = routeQuery.data?.shapeSegments ?? []
+  // Prefer new shapeSegments field; fall back to wrapping legacy shapePoints
+  const shapeSegments = routeQuery.data?.shapeSegments?.length
+    ? routeQuery.data.shapeSegments
+    : routeQuery.data?.shapePoints?.length
+      ? [routeQuery.data.shapePoints]
+      : []
   const updatedAt = routeId ? routeQuery.dataUpdatedAt : allQuery.dataUpdatedAt
 
   // Keep selectedVehicle data fresh after refetch
