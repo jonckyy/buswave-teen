@@ -60,7 +60,11 @@ function StopRow({
   )
 }
 
-function LineCard({ route }: { route: GtfsRoute }) {
+function LiveDot() {
+  return <span className="inline-block w-2 h-2 rounded-full bg-on-time animate-pulse shrink-0" title="En service" />
+}
+
+function LineCard({ route, isActive }: { route: GtfsRoute; isActive: boolean }) {
   const [expanded, setExpanded] = useState(false)
   const [activeDir, setActiveDir] = useState<0 | 1>(0)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -136,10 +140,13 @@ function LineCard({ route }: { route: GtfsRoute }) {
             <p className="text-xs text-muted">Ligne TEC</p>
           </div>
         </div>
-        {expanded
-          ? <ChevronDown className="h-4 w-4 text-muted shrink-0" />
-          : <ChevronRight className="h-4 w-4 text-muted shrink-0" />
-        }
+        <div className="flex items-center gap-2 shrink-0">
+          {isActive && <LiveDot />}
+          {expanded
+            ? <ChevronDown className="h-4 w-4 text-muted" />
+            : <ChevronRight className="h-4 w-4 text-muted" />
+          }
+        </div>
       </button>
 
       {/* Expanded stops */}
@@ -226,7 +233,7 @@ function LineCard({ route }: { route: GtfsRoute }) {
 
 // ── Stop search ───────────────────────────────────────────────────────────
 
-function StopRouteRow({ stop, route }: { stop: GtfsStop; route: StopRoute }) {
+function StopRouteRow({ stop, route, isActive }: { stop: GtfsStop; route: StopRoute; isActive: boolean }) {
   const addFavorite = useFavoritesStore((s) => s.addFavorite)
   const isFav = useFavoritesStore((s) => s.isFavorite(stop.stop_id, route.route_id))
 
@@ -239,6 +246,7 @@ function StopRouteRow({ stop, route }: { stop: GtfsStop; route: StopRoute }) {
         <span className="min-w-[2.5rem] rounded bg-accent-cyan/10 px-2 py-0.5 text-center text-xs font-bold text-accent-cyan shrink-0">
           {route.route_short_name}
         </span>
+        {isActive && <LiveDot />}
         <span className="text-sm text-white truncate">{route.route_long_name || route.headsign}</span>
       </div>
       <button
@@ -264,7 +272,7 @@ function StopRouteRow({ stop, route }: { stop: GtfsStop; route: StopRoute }) {
   )
 }
 
-function StopSearchResult({ stop }: { stop: GtfsStop }) {
+function StopSearchResult({ stop, activeRouteIds }: { stop: GtfsStop; activeRouteIds: Set<string> }) {
   const [expanded, setExpanded] = useState(false)
 
   const { data: routes = [], isLoading } = useQuery({
@@ -303,7 +311,7 @@ function StopSearchResult({ stop }: { stop: GtfsStop }) {
             <div className="px-4 py-4 text-center text-muted text-sm">Aucune ligne trouvée</div>
           ) : (
             routes.map((route) => (
-              <StopRouteRow key={`${route.route_id}:${route.direction_id}`} stop={stop} route={route} />
+              <StopRouteRow key={`${route.route_id}:${route.direction_id}`} stop={stop} route={route} isActive={activeRouteIds.has(route.route_id)} />
             ))
           )}
         </div>
@@ -333,6 +341,19 @@ export default function SearchPage() {
     enabled: mode === 'arret' && query.length >= 2,
     staleTime: 5_000,
   })
+
+  const { data: allVehicles = [] } = useQuery({
+    queryKey: ['all-vehicles-search'],
+    queryFn: () => api.allVehicles(),
+    refetchInterval: 30_000,
+    staleTime: 20_000,
+    enabled: query.length >= 2,
+  })
+
+  const activeRouteIds = useMemo(
+    () => new Set(allVehicles.map((v) => v.routeId)),
+    [allVehicles]
+  )
 
   const isLoading = mode === 'ligne' ? loadingRoutes : loadingStops
   const placeholder = mode === 'ligne' ? 'Numéro ou nom de ligne…' : 'Nom d\'arrêt…'
@@ -382,10 +403,10 @@ export default function SearchPage() {
             : mode === 'ligne'
             ? routes.length === 0
               ? <p className="text-muted text-center py-8">Aucun résultat pour « {query} »</p>
-              : routes.map((route) => <LineCard key={route.route_id} route={route} />)
+              : routes.map((route) => <LineCard key={route.route_id} route={route} isActive={activeRouteIds.has(route.route_id)} />)
             : stops.length === 0
             ? <p className="text-muted text-center py-8">Aucun arrêt trouvé pour « {query} »</p>
-            : stops.map((stop) => <StopSearchResult key={stop.stop_id} stop={stop} />)
+            : stops.map((stop) => <StopSearchResult key={stop.stop_id} stop={stop} activeRouteIds={activeRouteIds} />)
           }
         </div>
       ) : (
