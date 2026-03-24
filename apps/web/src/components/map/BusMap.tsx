@@ -4,9 +4,10 @@ import { useEffect, useRef, useState, useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet'
 import { useQuery } from '@tanstack/react-query'
 import L from 'leaflet'
-import { X, Bus, Navigation, Gauge, Clock, MapPin, Hash, ArrowRight } from 'lucide-react'
+import { X, Bus, Navigation, Gauge, Clock, MapPin, Hash, ArrowRight, Star } from 'lucide-react'
 import { api } from '@/lib/api'
 import { cn, delayColor, haversineKm, shapeDistanceKm } from '@/lib/utils'
+import { useFavoritesStore, selectFavoriteIds } from '@/store/favorites'
 import type { VehicleDetails, VehiclePosition, GtfsStop } from '@buswave/shared'
 
 // Fix Leaflet default icon in Next.js
@@ -188,6 +189,20 @@ interface StopInfoPanelProps {
 function StopInfoPanel({ stop, routeId, vehicles, shapeSegments, stopDirMap, onClose }: StopInfoPanelProps) {
   const [now, setNow] = useState(Math.floor(Date.now() / 1000))
 
+  const favoriteIds = useFavoritesStore(selectFavoriteIds)
+  const addFavorite = useFavoritesStore((s) => s.addFavorite)
+  const removeFavorite = useFavoritesStore((s) => s.removeFavorite)
+  const favKey = `${stop.stop_id}:${routeId ?? ''}`
+  const isFav = favoriteIds.includes(favKey)
+
+  function toggleFavorite() {
+    if (isFav) {
+      removeFavorite(stop.stop_id, routeId ?? null)
+    } else {
+      addFavorite({ stopId: stop.stop_id, routeId: routeId ?? null, userId: null })
+    }
+  }
+
   const arrivalsQuery = useQuery({
     queryKey: ['stop-arrivals-map', stop.stop_id, routeId],
     queryFn: () => api.arrivals(stop.stop_id, routeId),
@@ -240,13 +255,22 @@ function StopInfoPanel({ stop, routeId, vehicles, shapeSegments, stopDirMap, onC
     <div className="absolute top-3 left-3 z-[1000] w-72 rounded-xl border border-border bg-[#131A2B]/95 backdrop-blur shadow-xl text-sm">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-sm bg-muted" />
-          <span className="font-bold text-white truncate max-w-[190px]">{stop.stop_name}</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-2 h-2 rounded-sm bg-muted shrink-0" />
+          <span className="font-bold text-white truncate max-w-[160px]">{stop.stop_name}</span>
         </div>
-        <button onClick={onClose} className="text-muted hover:text-white transition-colors shrink-0">
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={toggleFavorite}
+            title={isFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            className={cn('transition-colors p-0.5', isFav ? 'text-accent-cyan' : 'text-muted hover:text-accent-cyan')}
+          >
+            <Star className="h-4 w-4" fill={isFav ? 'currentColor' : 'none'} />
+          </button>
+          <button onClick={onClose} className="text-muted hover:text-white transition-colors p-0.5">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Stop meta */}
