@@ -12,6 +12,7 @@ import type {
   RouteDirection,
   GtfsRoute,
   GtfsStop,
+  StopRoute,
 } from '@buswave/shared'
 
 const BASE = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001'
@@ -72,6 +73,9 @@ export const api = {
 
   searchStops: (q: string) =>
     apiFetch<GtfsStop[]>(`/api/realtime/stops/search?q=${encodeURIComponent(q)}`),
+
+  stopRoutes: (stopId: string) =>
+    apiFetch<StopRoute[]>(`/api/realtime/stops/${encodeURIComponent(stopId)}/routes`),
 
   alerts: () => apiFetch<Alert[]>('/api/realtime/alerts'),
 }

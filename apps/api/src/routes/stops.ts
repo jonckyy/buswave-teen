@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { getTripUpdates } from '../lib/gtfs-rt.js'
 import { supabase } from '../lib/supabase.js'
-import type { StopArrival, ApiResponse, GtfsStop } from '@buswave/shared'
+import type { StopArrival, ApiResponse, GtfsStop, StopRoute } from '@buswave/shared'
 
 export const stopsRouter = new Hono()
 
@@ -267,6 +267,47 @@ stopsRouter.get('/search', async (c) => {
   if (error) return c.json({ data: [] } satisfies ApiResponse<GtfsStop[]>)
 
   return c.json({ data: (data ?? []) as GtfsStop[] } satisfies ApiResponse<GtfsStop[]>)
+})
+
+/** GET /api/realtime/stops/:stopId/routes — lines serving this stop */
+stopsRouter.get('/:stopId/routes', async (c) => {
+  const stopId = c.req.param('stopId')
+
+  // Fetch a sample of trips serving this stop with nested route info
+  const { data, error } = await supabase
+    .from('stop_times')
+    .select('trips!inner(route_id, direction_id, trip_headsign, routes!inner(route_short_name, route_long_name))')
+    .eq('stop_id', stopId)
+    .limit(300)
+
+  if (error || !data) return c.json({ data: [] } satisfies ApiResponse<StopRoute[]>)
+
+  // Deduplicate by route_id + direction_id
+  const seen = new Map<string, StopRoute>()
+  for (const row of data) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const t = (row as any).trips
+    if (!t) continue
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = (t as any).routes
+    if (!r) continue
+    const key = `${t.route_id}:${t.direction_id}`
+    if (!seen.has(key)) {
+      seen.set(key, {
+        route_id: t.route_id,
+        route_short_name: r.route_short_name ?? t.route_id,
+        route_long_name: r.route_long_name ?? '',
+        direction_id: t.direction_id ?? 0,
+        headsign: t.trip_headsign ?? '',
+      })
+    }
+  }
+
+  const routes = [...seen.values()].sort((a, b) =>
+    a.route_short_name.localeCompare(b.route_short_name, undefined, { numeric: true })
+  )
+
+  return c.json({ data: routes } satisfies ApiResponse<StopRoute[]>)
 })
 
 /** GET /api/realtime/stops/:stopId/info */

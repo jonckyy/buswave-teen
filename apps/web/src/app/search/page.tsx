@@ -2,11 +2,11 @@
 
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Search, ChevronDown, ChevronRight, MapPin, Check, Plus, Star, Bus } from 'lucide-react'
+import { Search, ChevronDown, ChevronRight, MapPin, Check, Plus, Star, Bus, ArrowRight } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useFavoritesStore } from '@/store/favorites'
 import { cn } from '@/lib/utils'
-import type { GtfsRoute, GtfsStop, RouteDirection, VehiclePosition } from '@buswave/shared'
+import type { GtfsRoute, GtfsStop, RouteDirection, StopRoute, VehiclePosition } from '@buswave/shared'
 
 // ── Line search with expandable stop picker ───────────────────────────────
 
@@ -226,26 +226,34 @@ function LineCard({ route }: { route: GtfsRoute }) {
 
 // ── Stop search ───────────────────────────────────────────────────────────
 
-function StopSearchResult({ stop }: { stop: GtfsStop }) {
+function StopRouteRow({ stop, route }: { stop: GtfsStop; route: StopRoute }) {
   const addFavorite = useFavoritesStore((s) => s.addFavorite)
-  const isFav = useFavoritesStore((s) => s.isFavorite(stop.stop_id, null))
+  const isFav = useFavoritesStore((s) => s.isFavorite(stop.stop_id, route.route_id))
 
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
-      <div className="flex items-center gap-3 min-w-0">
-        <MapPin className="h-4 w-4 text-muted shrink-0" />
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-white truncate">{stop.stop_name}</p>
-          {stop.stop_code && <p className="text-xs text-muted">Code {stop.stop_code}</p>}
-        </div>
+    <div className={cn(
+      'flex items-center justify-between px-4 py-2.5 gap-3',
+      isFav ? 'opacity-60' : 'hover:bg-white/5'
+    )}>
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="min-w-[2.5rem] rounded bg-accent-cyan/10 px-2 py-0.5 text-center text-xs font-bold text-accent-cyan shrink-0">
+          {route.route_short_name}
+        </span>
+        <span className="text-xs text-muted shrink-0"><ArrowRight className="h-3 w-3 inline" /></span>
+        <span className="text-sm text-white truncate">{route.headsign || route.route_long_name}</span>
       </div>
       <button
         onClick={() =>
-          addFavorite({ stopId: stop.stop_id, routeId: null, userId: null, label: stop.stop_name })
+          addFavorite({
+            stopId: stop.stop_id,
+            routeId: route.route_id,
+            userId: null,
+            label: `${route.route_short_name} · ${stop.stop_name}`,
+          })
         }
         disabled={isFav}
         className={cn(
-          'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors shrink-0 ml-2',
+          'flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors shrink-0',
           isFav
             ? 'bg-on-time/10 text-on-time cursor-default'
             : 'bg-accent-cyan/10 text-accent-cyan hover:bg-accent-cyan/20'
@@ -253,6 +261,54 @@ function StopSearchResult({ stop }: { stop: GtfsStop }) {
       >
         {isFav ? <><Check className="h-3 w-3" /> Ajouté</> : <><Plus className="h-3 w-3" /> Favori</>}
       </button>
+    </div>
+  )
+}
+
+function StopSearchResult({ stop }: { stop: GtfsStop }) {
+  const [expanded, setExpanded] = useState(false)
+
+  const { data: routes = [], isLoading } = useQuery({
+    queryKey: ['stop-routes', stop.stop_id],
+    queryFn: () => api.stopRoutes(stop.stop_id),
+    enabled: expanded,
+    staleTime: 60_000,
+  })
+
+  return (
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      {/* Stop header — click to expand */}
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors text-left"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <MapPin className="h-4 w-4 text-muted shrink-0" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-white truncate">{stop.stop_name}</p>
+            {stop.stop_code && <p className="text-xs text-muted">Code {stop.stop_code}</p>}
+          </div>
+        </div>
+        {expanded
+          ? <ChevronDown className="h-4 w-4 text-muted shrink-0" />
+          : <ChevronRight className="h-4 w-4 text-muted shrink-0" />
+        }
+      </button>
+
+      {/* Expanded: list of lines serving this stop */}
+      {expanded && (
+        <div className="border-t border-border divide-y divide-border/50">
+          {isLoading ? (
+            <div className="px-4 py-4 text-center text-muted text-sm">Chargement…</div>
+          ) : routes.length === 0 ? (
+            <div className="px-4 py-4 text-center text-muted text-sm">Aucune ligne trouvée</div>
+          ) : (
+            routes.map((route) => (
+              <StopRouteRow key={`${route.route_id}:${route.direction_id}`} stop={stop} route={route} />
+            ))
+          )}
+        </div>
+      )}
     </div>
   )
 }

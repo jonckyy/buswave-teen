@@ -55,6 +55,14 @@ export interface RouteWithLiveVehicles {
   shapeSegments: Array<Array<{ lat: number; lon: number }>>
 }
 
+export interface StopRoute {
+  route_id: string
+  route_short_name: string
+  route_long_name: string
+  direction_id: number
+  headsign: string
+}
+
 // ── Distance helpers ────────────────────────────────────────────────────────
 
 export interface DistanceResult {
