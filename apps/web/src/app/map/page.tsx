@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
@@ -21,6 +21,14 @@ const BusMap = dynamic(() => import('@/components/map/BusMap').then((m) => m.Bus
 })
 
 export default function MapPage() {
+  return (
+    <Suspense fallback={<div className="h-[600px] rounded-xl bg-card animate-pulse" />}>
+      <MapPageInner />
+    </Suspense>
+  )
+}
+
+function MapPageInner() {
   const searchParams = useSearchParams()
   const initialRouteId = searchParams.get('routeId')
   const initialStopId = searchParams.get('stopId')
