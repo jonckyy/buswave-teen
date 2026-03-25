@@ -35,18 +35,30 @@ async function rawFetch<T>(path: string): Promise<T> {
 
 async function authFetch<T>(path: string, options: RequestInit & { token: string }): Promise<T> {
   const { token, ...init } = options
+  const fetchOpts: RequestInit = {
+    ...init,
+    mode: 'cors',
+    credentials: 'omit',
+    cache: 'no-store',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...(init.headers as Record<string, string> | undefined),
+    },
+  }
+  const url = `${BASE}${path}`
+
   let res: Response
   try {
-    res = await fetch(`${BASE}${path}`, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...init.headers,
-      },
-    })
-  } catch (e) {
-    throw new Error(`Network error on ${init.method ?? 'GET'} ${path}: ${e instanceof Error ? e.message : String(e)}`)
+    res = await fetch(url, fetchOpts)
+  } catch (firstErr) {
+    // Retry once after 500ms — handles stale HTTP/2 connections after deploy
+    await new Promise((r) => setTimeout(r, 500))
+    try {
+      res = await fetch(url, fetchOpts)
+    } catch (e) {
+      throw new Error(`Network error on ${init.method ?? 'GET'} ${path}: ${e instanceof Error ? e.message : String(e)}`)
+    }
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
