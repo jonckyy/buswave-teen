@@ -48,13 +48,27 @@ async function proxy(req: NextRequest, path: string[]) {
     })
 
     const data = await upstream.text()
+
+    // Log non-2xx for debugging — include base URL to verify env var
+    if (!upstream.ok) {
+      console.error(`[proxy] ${req.method} ${url} → ${upstream.status}: ${data.slice(0, 200)}`)
+    }
+    // Add debug header so we can verify the proxy target
+    const respHeaders: Record<string, string> = {
+      'Content-Type': upstream.headers.get('content-type') ?? 'application/json',
+      'X-Proxy-Target': API_BASE.slice(0, 50),
+      'X-Proxy-Status': String(upstream.status),
+    }
+
     return new NextResponse(data, {
       status: upstream.status,
-      headers: { 'Content-Type': upstream.headers.get('content-type') ?? 'application/json' },
+      headers: respHeaders,
     })
   } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error(`[proxy] ${req.method} ${url} → fetch error: ${msg}`)
     return NextResponse.json(
-      { error: `Proxy error: ${e instanceof Error ? e.message : String(e)}` },
+      { error: `Proxy error: ${msg}` },
       { status: 502 }
     )
   }

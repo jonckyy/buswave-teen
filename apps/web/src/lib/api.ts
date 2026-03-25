@@ -53,7 +53,9 @@ async function authFetch<T>(path: string, options: RequestInit & { token: string
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error((body as { error?: string }).error ?? `API error ${res.status}: ${path}`)
+    const target = res.headers.get('x-proxy-target') ?? ''
+    const detail = (body as { error?: string }).error ?? ''
+    throw new Error(detail || `API ${res.status} [${target}] ${path}`)
   }
   const json = (await res.json()) as { data: T }
   return json.data
