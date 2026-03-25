@@ -33,7 +33,7 @@ app.get('/health', async (c) => {
   const vapidError = validateVapidKeys()
   return c.json({
     ok: true,
-    commit: 'debug02',
+    commit: 'fix-upsert01',
     vapid: isConfigured(),
     vapidKeyLen: pubKey.length,
     vapidValid: vapidError === null,

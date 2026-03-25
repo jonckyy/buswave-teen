@@ -25,16 +25,35 @@ notificationsRouter.post('/subscribe', requireAuth, async (c) => {
     return c.json({ error: 'Missing required fields: endpoint, keys.p256dh, keys.auth' }, 400)
   }
 
-  const { error } = await supabase.from('push_subscriptions').upsert(
-    {
-      user_id: userId,
-      endpoint: body.endpoint,
-      p256dh: body.keys.p256dh,
-      auth: body.keys.auth,
-      user_agent: body.userAgent ?? null,
-    },
-    { onConflict: 'endpoint' }
-  )
+  // Check if subscription already exists (avoid .upsert which crashes Bun)
+  const { data: existing } = await supabase
+    .from('push_subscriptions')
+    .select('id')
+    .eq('endpoint', body.endpoint)
+    .maybeSingle()
+
+  let error
+  if (existing) {
+    ;({ error } = await supabase
+      .from('push_subscriptions')
+      .update({
+        user_id: userId,
+        p256dh: body.keys.p256dh,
+        auth: body.keys.auth,
+        user_agent: body.userAgent ?? null,
+      })
+      .eq('endpoint', body.endpoint))
+  } else {
+    ;({ error } = await supabase
+      .from('push_subscriptions')
+      .insert({
+        user_id: userId,
+        endpoint: body.endpoint,
+        p256dh: body.keys.p256dh,
+        auth: body.keys.auth,
+        user_agent: body.userAgent ?? null,
+      }))
+  }
 
   if (error) {
     console.error('[notifications] subscribe error:', error.message)
@@ -127,20 +146,41 @@ notificationsRouter.put('/settings/:favoriteId', requireAuth, async (c) => {
       }
     }
 
-    console.log(`[notifications] upserting...`)
-    const { error } = await supabase.from('notification_settings').upsert(
-      {
-        favorite_id: favoriteId,
-        user_id: userId,
-        time_enabled: body.timeEnabled ?? false,
-        time_minutes: body.timeMinutes ?? 5,
-        distance_enabled: body.distanceEnabled ?? false,
-        distance_meters: body.distanceMeters ?? 500,
-        offroute_enabled: body.offrouteEnabled ?? false,
-        offroute_meters: body.offrouteMeters ?? 150,
-      },
-      { onConflict: 'favorite_id' }
-    )
+    console.log(`[notifications] saving settings...`)
+    // Check if settings already exist (avoid .upsert which crashes Bun)
+    const { data: existing } = await supabase
+      .from('notification_settings')
+      .select('id')
+      .eq('favorite_id', favoriteId)
+      .maybeSingle()
+
+    let error
+    if (existing) {
+      ;({ error } = await supabase
+        .from('notification_settings')
+        .update({
+          time_enabled: body.timeEnabled ?? false,
+          time_minutes: body.timeMinutes ?? 5,
+          distance_enabled: body.distanceEnabled ?? false,
+          distance_meters: body.distanceMeters ?? 500,
+          offroute_enabled: body.offrouteEnabled ?? false,
+          offroute_meters: body.offrouteMeters ?? 150,
+        })
+        .eq('favorite_id', favoriteId))
+    } else {
+      ;({ error } = await supabase
+        .from('notification_settings')
+        .insert({
+          favorite_id: favoriteId,
+          user_id: userId,
+          time_enabled: body.timeEnabled ?? false,
+          time_minutes: body.timeMinutes ?? 5,
+          distance_enabled: body.distanceEnabled ?? false,
+          distance_meters: body.distanceMeters ?? 500,
+          offroute_enabled: body.offrouteEnabled ?? false,
+          offroute_meters: body.offrouteMeters ?? 150,
+        }))
+    }
 
     if (error) {
       console.error('[notifications] upsert error:', error.message, error.details, error.hint)
