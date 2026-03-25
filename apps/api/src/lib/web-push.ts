@@ -20,19 +20,19 @@ export function isConfigured(): boolean {
   return !!(VAPID_PUBLIC && VAPID_PRIVATE)
 }
 
-/** Validate VAPID key pair by attempting a JWT sign — returns null if valid, error string if not */
+/** Validate VAPID key pair by generating VAPID JWT headers — returns null if valid, error string if not */
 export function validateVapidKeys(): string | null {
   if (!VAPID_PUBLIC || !VAPID_PRIVATE) return 'Keys not set'
   try {
-    // Use a properly-sized dummy subscription (p256dh=65 bytes, auth=16 bytes)
-    const dummyP256dh = Buffer.alloc(65, 4).toString('base64url') // 65 bytes, starts with 0x04
-    const dummyAuth = Buffer.alloc(16, 0).toString('base64url')    // 16 bytes
-    webpush.generateRequestDetails(
-      { endpoint: 'https://fcm.googleapis.com/fcm/send/test', keys: { p256dh: dummyP256dh, auth: dummyAuth } },
-      'test',
-      { vapidDetails: { subject: VAPID_SUBJECT, publicKey: VAPID_PUBLIC, privateKey: VAPID_PRIVATE } }
+    // getVapidHeaders signs a JWT using the VAPID private key — if keys don't match, this fails
+    const headers = webpush.getVapidHeaders(
+      'https://fcm.googleapis.com',
+      VAPID_SUBJECT,
+      VAPID_PUBLIC,
+      VAPID_PRIVATE,
+      'aesgcm'
     )
-    return null // valid
+    return headers.Authorization ? null : 'No authorization header generated'
   } catch (err) {
     return String(err)
   }
