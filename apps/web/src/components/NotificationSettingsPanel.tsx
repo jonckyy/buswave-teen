@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Bell, Clock, MapPin, AlertTriangle, X, Loader2 } from 'lucide-react'
 import { useNotificationSettings } from '@/hooks/useNotificationSettings'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
@@ -56,33 +57,47 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
     onClose()
   }
 
+  // Block all events from reaching elements underneath the modal
+  function stopAll(e: React.MouseEvent | React.TouchEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  function handleBackdrop(e: React.MouseEvent | React.TouchEvent) {
+    stopAll(e)
+    onClose()
+  }
+
   if (!supported) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#131A2B] p-6" onClick={(e) => e.stopPropagation()}>
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4" onClick={handleBackdrop} onTouchEnd={handleBackdrop}>
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#131A2B] p-6" onClick={stopAll} onTouchEnd={stopAll}>
           <p className="text-sm text-[#8892B0]">Les notifications push ne sont pas supportées sur ce navigateur.</p>
-          <button onClick={onClose} className="mt-4 text-sm text-[#00D4FF]">Fermer</button>
+          <button onClick={(e) => { stopAll(e); onClose() }} className="mt-4 text-sm text-[#00D4FF]">Fermer</button>
         </div>
-      </div>
+      </div>,
+      document.body
     )
   }
 
   if (permission === 'denied') {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#131A2B] p-6" onClick={(e) => e.stopPropagation()}>
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4" onClick={handleBackdrop} onTouchEnd={handleBackdrop}>
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#131A2B] p-6" onClick={stopAll} onTouchEnd={stopAll}>
           <p className="text-sm text-[#8892B0]">Les notifications sont bloquées. Autorisez-les dans les paramètres de votre navigateur.</p>
-          <button onClick={onClose} className="mt-4 text-sm text-[#00D4FF]">Fermer</button>
+          <button onClick={(e) => { stopAll(e); onClose() }} className="mt-4 text-sm text-[#00D4FF]">Fermer</button>
         </div>
-      </div>
+      </div>,
+      document.body
     )
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-4" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 p-4" onClick={handleBackdrop} onTouchEnd={handleBackdrop}>
       <div
         className="w-full max-w-md rounded-2xl border border-white/10 bg-[#131A2B] p-6 space-y-5 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
+        onClick={stopAll}
+        onTouchEnd={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -90,7 +105,7 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
             <Bell className="h-5 w-5 text-[#00D4FF]" />
             <h2 className="text-lg font-semibold text-white">Notifications</h2>
           </div>
-          <button onClick={onClose} className="text-[#8892B0] hover:text-white">
+          <button onClick={(e) => { stopAll(e); onClose() }} className="text-[#8892B0] hover:text-white">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -222,7 +237,7 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
 
             {/* Save */}
             <button
-              onClick={handleSave}
+              onClick={(e) => { stopAll(e); handleSave() }}
               disabled={isUpdating}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#00D4FF] py-2.5 text-sm font-semibold text-[#0A0E17] transition-opacity hover:opacity-90 disabled:opacity-50"
             >
@@ -232,6 +247,7 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

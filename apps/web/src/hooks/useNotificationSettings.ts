@@ -24,7 +24,7 @@ export function useNotificationSettings(favoriteId: string | null) {
       return api.getNotificationSettings(favoriteId, token)
     },
     enabled: !!favoriteId,
-    staleTime: 30_000,
+    staleTime: 5_000,
   })
 
   const mutation = useMutation({
