@@ -33,7 +33,7 @@ app.get('/health', async (c) => {
   const vapidError = validateVapidKeys()
   return c.json({
     ok: true,
-    commit: 'dbtest02',
+    commit: 'dbtest03',
     vapid: isConfigured(),
     vapidKeyLen: pubKey.length,
     vapidValid: vapidError === null,
@@ -70,7 +70,16 @@ app.get('/debug/db-test', async (c) => {
   const steps: string[] = []
   try {
     const { supabase } = await import('./lib/supabase.js')
-    steps.push('supabase: imported')
+    const sbUrl = process.env['SUPABASE_URL'] ?? 'MISSING'
+    const sbKey = process.env['SUPABASE_SERVICE_KEY'] ?? 'MISSING'
+    steps.push(`url=${sbUrl.slice(0, 30)}...`)
+    steps.push(`key_role=${sbKey.includes('service_role') ? 'service_role' : sbKey.slice(0, 20)}...`)
+
+    // Test: raw favorites count to check if service_role bypasses RLS
+    const { count: favCount, error: favCountErr } = await supabase
+      .from('favorites')
+      .select('*', { count: 'exact', head: true })
+    steps.push(`favorites_count=${favCount} err=${favCountErr?.message ?? 'none'}`)
 
     // Find first user's first favorite to test with real data
     const { data: favRow, error: favErr } = await supabase
