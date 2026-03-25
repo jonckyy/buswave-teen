@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  const response = NextResponse.next({ request })
+  let supabaseResponse = NextResponse.next({ request })
 
   try {
     const supabase = createServerClient(
@@ -14,9 +14,12 @@ export async function middleware(request: NextRequest) {
             return request.cookies.getAll()
           },
           setAll(cookiesToSet: { name: string; value: string; options?: object }[]) {
-            cookiesToSet.forEach(({ name, value, options }) => {
+            cookiesToSet.forEach(({ name, value }) => {
               request.cookies.set(name, value)
-              response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2])
+            })
+            supabaseResponse = NextResponse.next({ request })
+            cookiesToSet.forEach(({ name, value, options }) => {
+              supabaseResponse.cookies.set(name, value, options as Parameters<typeof supabaseResponse.cookies.set>[2])
             })
           },
         },
@@ -29,12 +32,11 @@ export async function middleware(request: NextRequest) {
     // Supabase not configured or unreachable — continue without auth refresh
   }
 
-  return response
+  return supabaseResponse
 }
 
 export const config = {
   matcher: [
-    // Run on all routes except static files and API routes
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
