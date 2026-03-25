@@ -26,24 +26,35 @@ export function useUser(): AuthUser {
   const supabase = useMemo(() => createSupabaseClient(), [])
 
   useEffect(() => {
-    // Check for existing session immediately (handles page refresh while signed in)
-    supabase.auth.getUser().then(async ({ data: { user: u } }) => {
-      if (u) {
-        setUser(u)
-        const { data } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', u.id)
-          .single()
-        setRole((data?.role as UserRole) ?? 'user')
+    let mounted = true
+
+    async function loadUser() {
+      try {
+        const { data: { user: u } } = await supabase.auth.getUser()
+        if (!mounted) return
+        if (u) {
+          setUser(u)
+          const { data } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', u.id)
+            .single()
+          if (mounted) setRole((data?.role as UserRole) ?? 'user')
+        }
+      } catch (err) {
+        console.error('[useUser] getUser error:', err)
+      } finally {
+        if (mounted) setLoading(false)
       }
-      setLoading(false)
-    })
+    }
+
+    loadUser()
 
     // Also subscribe to future sign-in / sign-out events
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return
       const u = session?.user ?? null
       setUser(u)
       if (u) {
@@ -52,14 +63,17 @@ export function useUser(): AuthUser {
           .select('role')
           .eq('id', u.id)
           .single()
-        setRole((data?.role as UserRole) ?? 'user')
+        if (mounted) setRole((data?.role as UserRole) ?? 'user')
       } else {
         setRole(null)
       }
       setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [supabase])
 
   async function signOut() {
