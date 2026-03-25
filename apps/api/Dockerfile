@@ -6,8 +6,13 @@ COPY package.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY apps/api/package.json ./apps/api/
 
-# Strip "packageManager" field so bun doesn't refuse to install in a pnpm-declared project
-RUN sed -i '/"packageManager"/d' package.json
+# Clean root package.json for Bun:
+#   - Remove "packageManager" (pnpm-only)
+#   - Remove "pnpm" config block (onlyBuiltDependencies)
+#   - Narrow workspaces to only what the API needs (skip apps/web)
+RUN apk add --no-cache jq && \
+    jq 'del(.packageManager, .pnpm, .engines) | .workspaces = ["packages/*", "apps/api"]' package.json > package.tmp.json && \
+    mv package.tmp.json package.json
 
 # Install all workspace dependencies
 RUN bun install

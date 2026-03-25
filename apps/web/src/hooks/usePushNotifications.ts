@@ -82,7 +82,7 @@ export function usePushNotifications() {
       // Some browsers prefer Uint8Array directly
       sub = await sw.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: appServerKey,
+        applicationServerKey: appServerKey as BufferSource,
       })
     }
 

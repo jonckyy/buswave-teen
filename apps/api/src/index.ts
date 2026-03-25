@@ -67,7 +67,11 @@ app.route('/api/realtime/alerts', alertsRouter)
 app.route('/api/notifications', notificationsRouter)
 
 // Start the push notification scheduler (30s interval)
-startNotificationScheduler()
+try {
+  startNotificationScheduler()
+} catch (err) {
+  console.error('[startup] Scheduler failed to start:', err)
+}
 
 const port = Number(process.env['PORT'] ?? 3001)
 console.log(`BusWave API listening on http://localhost:${port}`)
