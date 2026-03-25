@@ -97,50 +97,62 @@ notificationsRouter.get('/settings/:favoriteId', requireAuth, async (c) => {
 
 /** PUT /settings/:favoriteId — upsert notification settings */
 notificationsRouter.put('/settings/:favoriteId', requireAuth, async (c) => {
-  const userId = c.get('userId') as string
-  const userRole = (c.get('userRole') as string) ?? 'user'
-  const favoriteId = c.req.param('favoriteId')
-  const body = await c.req.json()
+  try {
+    const userId = c.get('userId') as string
+    const userRole = (c.get('userRole') as string) ?? 'user'
+    const favoriteId = c.req.param('favoriteId')
+    console.log(`[notifications] PUT settings: user=${userId} role=${userRole} fav=${favoriteId}`)
 
-  // Check push limit: count favorites with any active trigger (excluding this one)
-  const hasAnyTrigger = body.timeEnabled || body.distanceEnabled || body.offrouteEnabled
-  if (hasAnyTrigger) {
-    const { count } = await supabase
-      .from('notification_settings')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .neq('favorite_id', favoriteId)
-      .or('time_enabled.eq.true,distance_enabled.eq.true,offroute_enabled.eq.true')
+    const body = await c.req.json()
+    console.log(`[notifications] body:`, JSON.stringify(body))
 
-    const limit = PUSH_LIMITS[userRole] ?? PUSH_LIMITS['user'] ?? 3
-    if ((count ?? 0) >= limit) {
-      return c.json(
-        { error: `Limite atteinte : ${limit} favoris avec notifications maximum.` },
-        403
-      )
+    // Check push limit: count favorites with any active trigger (excluding this one)
+    const hasAnyTrigger = body.timeEnabled || body.distanceEnabled || body.offrouteEnabled
+    if (hasAnyTrigger) {
+      console.log(`[notifications] checking push limit...`)
+      const { count, error: countErr } = await supabase
+        .from('notification_settings')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .neq('favorite_id', favoriteId)
+        .or('time_enabled.eq.true,distance_enabled.eq.true,offroute_enabled.eq.true')
+
+      console.log(`[notifications] limit check: count=${count} error=${countErr?.message}`)
+      const limit = PUSH_LIMITS[userRole] ?? PUSH_LIMITS['user'] ?? 3
+      if ((count ?? 0) >= limit) {
+        return c.json(
+          { error: `Limite atteinte : ${limit} favoris avec notifications maximum.` },
+          403
+        )
+      }
     }
+
+    console.log(`[notifications] upserting...`)
+    const { error } = await supabase.from('notification_settings').upsert(
+      {
+        favorite_id: favoriteId,
+        user_id: userId,
+        time_enabled: body.timeEnabled ?? false,
+        time_minutes: body.timeMinutes ?? 5,
+        distance_enabled: body.distanceEnabled ?? false,
+        distance_meters: body.distanceMeters ?? 500,
+        offroute_enabled: body.offrouteEnabled ?? false,
+        offroute_meters: body.offrouteMeters ?? 150,
+      },
+      { onConflict: 'favorite_id' }
+    )
+
+    if (error) {
+      console.error('[notifications] upsert error:', error.message, error.details, error.hint)
+      return c.json({ error: `Failed to save: ${error.message}` }, 500)
+    }
+
+    console.log(`[notifications] saved OK`)
+    return c.json({ data: { ok: true } })
+  } catch (err) {
+    console.error('[notifications] PUT crash:', err)
+    return c.json({ error: `Handler crash: ${err instanceof Error ? err.message : String(err)}` }, 500)
   }
-
-  const { error } = await supabase.from('notification_settings').upsert(
-    {
-      favorite_id: favoriteId,
-      user_id: userId,
-      time_enabled: body.timeEnabled ?? false,
-      time_minutes: body.timeMinutes ?? 5,
-      distance_enabled: body.distanceEnabled ?? false,
-      distance_meters: body.distanceMeters ?? 500,
-      offroute_enabled: body.offrouteEnabled ?? false,
-      offroute_meters: body.offrouteMeters ?? 150,
-    },
-    { onConflict: 'favorite_id' }
-  )
-
-  if (error) {
-    console.error('[notifications] settings upsert error:', error.message)
-    return c.json({ error: 'Failed to save settings' }, 500)
-  }
-
-  return c.json({ data: { ok: true } })
 })
 
 /** GET /quiet-hours — get user's quiet hours */
