@@ -8,20 +8,24 @@ const API_BASE = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001'
  *
  * /api/notifications/* → Railway /api/notifications/*
  */
-export async function GET(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-  return proxy(req, await params)
+
+// Next.js 14: params is a plain object, not a Promise
+type RouteContext = { params: { path: string[] } }
+
+export async function GET(req: NextRequest, ctx: RouteContext) {
+  return proxy(req, ctx.params.path)
 }
-export async function POST(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-  return proxy(req, await params)
+export async function POST(req: NextRequest, ctx: RouteContext) {
+  return proxy(req, ctx.params.path)
 }
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-  return proxy(req, await params)
+export async function PUT(req: NextRequest, ctx: RouteContext) {
+  return proxy(req, ctx.params.path)
 }
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-  return proxy(req, await params)
+export async function DELETE(req: NextRequest, ctx: RouteContext) {
+  return proxy(req, ctx.params.path)
 }
 
-async function proxy(req: NextRequest, { path }: { path: string[] }) {
+async function proxy(req: NextRequest, path: string[]) {
   const subPath = path.join('/')
   const url = `${API_BASE}/api/notifications/${subPath}`
 
@@ -35,16 +39,23 @@ async function proxy(req: NextRequest, { path }: { path: string[] }) {
     ? await req.text()
     : undefined
 
-  const upstream = await fetch(url, {
-    method: req.method,
-    headers,
-    body,
-    cache: 'no-store',
-  })
+  try {
+    const upstream = await fetch(url, {
+      method: req.method,
+      headers,
+      body,
+      cache: 'no-store',
+    })
 
-  const data = await upstream.text()
-  return new NextResponse(data, {
-    status: upstream.status,
-    headers: { 'Content-Type': upstream.headers.get('content-type') ?? 'application/json' },
-  })
+    const data = await upstream.text()
+    return new NextResponse(data, {
+      status: upstream.status,
+      headers: { 'Content-Type': upstream.headers.get('content-type') ?? 'application/json' },
+    })
+  } catch (e) {
+    return NextResponse.json(
+      { error: `Proxy error: ${e instanceof Error ? e.message : String(e)}` },
+      { status: 502 }
+    )
+  }
 }
