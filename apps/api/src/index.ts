@@ -33,7 +33,7 @@ app.get('/health', async (c) => {
   const vapidError = validateVapidKeys()
   return c.json({
     ok: true,
-    commit: 'fix-upsert01',
+    commit: 'dbtest01',
     vapid: isConfigured(),
     vapidKeyLen: pubKey.length,
     vapidValid: vapidError === null,
@@ -65,44 +65,83 @@ app.get('/debug/trips', async (c) => {
   }
 })
 
-// Debug: test auth flow step by step
-app.put('/debug/auth-test', async (c) => {
+// Debug: step-by-step DB test mirroring PUT settings handler
+app.put('/debug/db-test', async (c) => {
   const steps: string[] = []
   try {
+    const { supabase } = await import('./lib/supabase.js')
+    steps.push('supabase: imported')
+
     const authHeader = c.req.header('Authorization')
-    steps.push(`header: ${authHeader ? 'present' : 'missing'}`)
     if (!authHeader?.startsWith('Bearer ')) {
       return c.json({ steps, error: 'No bearer token' }, 401)
     }
     const token = authHeader.slice(7)
-    steps.push(`token: ${token.length} chars`)
-
-    const { supabase } = await import('./lib/supabase.js')
-    steps.push('supabase: imported')
-
-    const { data: { user }, error } = await supabase.auth.getUser(token)
-    steps.push(`getUser: ${user ? user.id : 'null'} error=${error?.message ?? 'none'}`)
-    if (!user) return c.json({ steps, error: 'Invalid token' }, 401)
-
-    let role = 'user'
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle()
-      if (profile?.role) role = profile.role
-      steps.push(`profile: role=${role}`)
-    } catch (e) {
-      steps.push(`profile: error=${e}`)
-    }
+    const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
+    if (!user) return c.json({ steps, error: `Auth: ${authErr?.message}` }, 401)
+    steps.push(`user: ${user.id}`)
 
     const body = await c.req.json()
-    steps.push(`body: ${JSON.stringify(body).slice(0, 100)}`)
+    const favoriteId = body.favoriteId ?? 'test-id'
+    steps.push(`body parsed, favoriteId=${favoriteId}`)
 
-    return c.json({ ok: true, steps, userId: user.id, role })
+    // Step 1: select with maybeSingle (same as GET settings — should work)
+    try {
+      const { data: existing, error: selErr } = await supabase
+        .from('notification_settings')
+        .select('id')
+        .eq('favorite_id', favoriteId)
+        .maybeSingle()
+      steps.push(`select: existing=${existing?.id ?? 'null'} err=${selErr?.message ?? 'none'}`)
+    } catch (e) {
+      steps.push(`select THREW: ${e instanceof Error ? e.message : String(e)}`)
+    }
+
+    // Step 2: count query (push limit check)
+    try {
+      const { count, error: cntErr } = await supabase
+        .from('notification_settings')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+      steps.push(`count: ${count} err=${cntErr?.message ?? 'none'}`)
+    } catch (e) {
+      steps.push(`count THREW: ${e instanceof Error ? e.message : String(e)}`)
+    }
+
+    // Step 3: insert (the suspected crasher)
+    try {
+      const { error: insErr } = await supabase
+        .from('notification_settings')
+        .insert({
+          favorite_id: favoriteId,
+          user_id: user.id,
+          time_enabled: false,
+          time_minutes: 5,
+          distance_enabled: false,
+          distance_meters: 500,
+          offroute_enabled: false,
+          offroute_meters: 150,
+        })
+      steps.push(`insert: err=${insErr?.message ?? 'none'}`)
+    } catch (e) {
+      steps.push(`insert THREW: ${e instanceof Error ? e.message : String(e)}`)
+    }
+
+    // Step 4: cleanup — delete what we just inserted
+    try {
+      await supabase
+        .from('notification_settings')
+        .delete()
+        .eq('favorite_id', favoriteId)
+        .eq('user_id', user.id)
+      steps.push('cleanup: done')
+    } catch (e) {
+      steps.push(`cleanup THREW: ${e instanceof Error ? e.message : String(e)}`)
+    }
+
+    return c.json({ ok: true, steps })
   } catch (e) {
-    steps.push(`crash: ${e instanceof Error ? e.message : String(e)}`)
+    steps.push(`outer crash: ${e instanceof Error ? e.message : String(e)}`)
     return c.json({ ok: false, steps, error: String(e) }, 500)
   }
 })
