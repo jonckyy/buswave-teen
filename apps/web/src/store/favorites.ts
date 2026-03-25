@@ -9,7 +9,7 @@ interface FavoritesState {
   favoriteIds: string[] // "stopId:routeId" composite keys
   favorites: Favorite[]
   // Actions
-  addFavorite: (fav: FavoriteInsert) => void
+  addFavorite: (fav: FavoriteInsert, id?: string) => void
   removeFavorite: (stopId: string, routeId: string | null) => void
   isFavorite: (stopId: string, routeId: string | null) => boolean
   setFavorites: (favs: Favorite[]) => void
@@ -26,8 +26,8 @@ export const useFavoritesStore = create<FavoritesState>()(
       favoriteIds: [],
       favorites: [],
 
-      addFavorite(fav) {
-        const id = crypto.randomUUID()
+      addFavorite(fav, providedId?) {
+        const id = providedId ?? crypto.randomUUID()
         const newFav: Favorite = {
           ...fav,
           id,

@@ -23,6 +23,7 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
   const [distanceMeters, setDistanceMeters] = useState(500)
   const [offrouteEnabled, setOffrouteEnabled] = useState(false)
   const [offrouteMeters, setOffrouteMeters] = useState(150)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // Sync local state from fetched settings
   useEffect(() => {
@@ -37,11 +38,14 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
   }, [settings])
 
   async function handleSave() {
+    setSaveError(null)
+
     // Ensure push is subscribed
     if (!isSubscribed && (timeEnabled || distanceEnabled || offrouteEnabled)) {
       try {
         await subscribe()
-      } catch {
+      } catch (err) {
+        setSaveError(`Push subscription failed: ${err instanceof Error ? err.message : String(err)}`)
         return
       }
     }
@@ -56,8 +60,8 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
         offrouteMeters,
       })
       onClose()
-    } catch {
-      // error is displayed via the mutation error state
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : String(err))
     }
   }
 
@@ -235,8 +239,8 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
             </div>
 
             {/* Error */}
-            {error && (
-              <p className="text-sm text-red-400">{error.message}</p>
+            {(saveError || error) && (
+              <p className="text-sm text-red-400">{saveError ?? error?.message}</p>
             )}
 
             {/* Save */}

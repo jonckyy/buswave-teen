@@ -11,6 +11,9 @@ export function useNotificationSettings(favoriteId: string | null) {
   const supabase = useMemo(() => createSupabaseClient(), [])
 
   const getToken = async (): Promise<string> => {
+    // Use getUser() to trigger token refresh if expired, then read the fresh session
+    const { data: { user }, error } = await supabase.auth.getUser()
+    if (error || !user) throw new Error('Not authenticated')
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.access_token) throw new Error('Not authenticated')
     return session.access_token

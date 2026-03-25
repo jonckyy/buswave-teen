@@ -16,10 +16,13 @@ export function useFavoritesActions() {
   const supabase = useMemo(() => createSupabaseClient(), [])
 
   async function addFavorite(fav: FavoriteInsert) {
-    addToStore(fav)
+    // Generate UUID here so store and Supabase share the same ID
+    const id = crypto.randomUUID()
+    addToStore(fav, id)
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       const { error } = await supabase.from('favorites').insert({
+        id,
         user_id: user.id,
         stop_id: fav.stopId,
         route_id: fav.routeId ?? null,

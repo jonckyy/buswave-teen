@@ -29,6 +29,9 @@ export function usePushNotifications() {
   }, [supported])
 
   const getToken = useCallback(async (): Promise<string | null> => {
+    // Use getUser() to trigger token refresh if expired, then read fresh session
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token ?? null
   }, [supabase])
