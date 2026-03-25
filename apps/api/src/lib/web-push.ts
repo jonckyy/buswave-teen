@@ -20,6 +20,23 @@ export function isConfigured(): boolean {
   return !!(VAPID_PUBLIC && VAPID_PRIVATE)
 }
 
+/** Validate VAPID key pair by attempting a JWT sign — returns null if valid, error string if not */
+export function validateVapidKeys(): string | null {
+  if (!VAPID_PUBLIC || !VAPID_PRIVATE) return 'Keys not set'
+  try {
+    // web-push generateRequestDetails uses the VAPID keys to sign a JWT
+    // If the key pair is invalid, this will throw
+    webpush.generateRequestDetails(
+      { endpoint: 'https://fcm.googleapis.com/fcm/send/test', keys: { p256dh: 'AAAA', auth: 'AAAA' } },
+      'test',
+      { vapidDetails: { subject: VAPID_SUBJECT, publicKey: VAPID_PUBLIC, privateKey: VAPID_PRIVATE } }
+    )
+    return null // valid
+  } catch (err) {
+    return String(err)
+  }
+}
+
 /**
  * Send a push notification. Returns true if successful.
  * Handles 410 Gone (subscription expired) by deleting from DB.

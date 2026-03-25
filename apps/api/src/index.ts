@@ -22,13 +22,16 @@ app.use(
 
 // Health check — version helps confirm Railway deployed latest code
 app.get('/health', async (c) => {
-  const { isConfigured, getVapidPublicKey } = await import('./lib/web-push.js')
+  const { isConfigured, getVapidPublicKey, validateVapidKeys } = await import('./lib/web-push.js')
   const pubKey = getVapidPublicKey()
+  const vapidError = validateVapidKeys()
   return c.json({
     ok: true,
-    commit: '8312306',
+    commit: 'e7440f3',
     vapid: isConfigured(),
     vapidKeyLen: pubKey.length,
+    vapidValid: vapidError === null,
+    vapidError: vapidError ?? undefined,
   })
 })
 
