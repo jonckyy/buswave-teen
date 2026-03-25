@@ -19,15 +19,21 @@ export async function requireAuth(c: Context, next: Next) {
     return c.json({ error: 'Invalid or expired token' }, 401)
   }
 
-  // Fetch role from profiles
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+  // Fetch role from profiles — use maybeSingle to avoid crash if row/column missing
+  let role = 'user'
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (profile?.role) role = profile.role
+  } catch {
+    // profiles table or role column might not exist — default to 'user'
+  }
 
   c.set('userId', user.id)
-  c.set('userRole', profile?.role ?? 'user')
+  c.set('userRole', role)
 
   await next()
 }
