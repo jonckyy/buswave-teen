@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import { createSupabaseClient } from '@/lib/supabase'
 
@@ -10,7 +10,7 @@ export function usePushNotifications() {
   const [permission, setPermission] = useState<Permission>('default')
   const [isSubscribed, setIsSubscribed] = useState(false)
   const vapidKeyRef = useRef<string | null>(null)
-  const supabase = createSupabaseClient()
+  const supabase = useMemo(() => createSupabaseClient(), [])
 
   const supported = typeof window !== 'undefined' &&
     'serviceWorker' in navigator &&
