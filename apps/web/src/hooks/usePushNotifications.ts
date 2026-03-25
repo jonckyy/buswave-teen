@@ -57,7 +57,11 @@ export function usePushNotifications() {
     if (!vapidKey) throw new Error('VAPID key not configured on server')
     const appServerKey = urlBase64ToUint8Array(vapidKey)
 
-    // Register service worker and wait for it to activate
+    // Force-update service worker to ensure latest version
+    const existingReg = await navigator.serviceWorker.getRegistration()
+    if (existingReg) {
+      await existingReg.update()
+    }
     const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
     const sw = await navigator.serviceWorker.ready
 
@@ -67,11 +71,20 @@ export function usePushNotifications() {
       await existingSub.unsubscribe()
     }
 
-    // Subscribe to push
-    const sub = await sw.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: appServerKey.buffer as ArrayBuffer,
-    })
+    // Subscribe to push — try ArrayBuffer first, fall back to Uint8Array
+    let sub: PushSubscription
+    try {
+      sub = await sw.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: appServerKey.buffer as ArrayBuffer,
+      })
+    } catch (firstErr) {
+      // Some browsers prefer Uint8Array directly
+      sub = await sw.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: appServerKey,
+      })
+    }
 
     const json = sub.toJSON()
     await api.subscribeToNotifications(
