@@ -27,7 +27,7 @@ app.get('/health', async (c) => {
   const vapidError = validateVapidKeys()
   return c.json({
     ok: true,
-    commit: 'd1ca11a',
+    commit: '3552d08',
     vapid: isConfigured(),
     vapidKeyLen: pubKey.length,
     vapidValid: vapidError === null,
