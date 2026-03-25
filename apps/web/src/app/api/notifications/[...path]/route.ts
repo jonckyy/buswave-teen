@@ -12,8 +12,39 @@ const API_BASE = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001'
 // Next.js 14: params is a plain object, not a Promise
 type RouteContext = { params: { path: string[] } }
 
+// Debug: test auth flow on Railway using user's real token
+export async function OPTIONS(req: NextRequest) {
+  return new NextResponse(null, { status: 204 })
+}
+
 export async function GET(req: NextRequest, ctx: RouteContext) {
+  // Special debug route: /api/notifications/debug-auth
+  if (ctx.params.path[0] === 'debug-auth') {
+    return debugAuth(req)
+  }
   return proxy(req, ctx.params.path)
+}
+
+async function debugAuth(req: NextRequest) {
+  const auth = req.headers.get('authorization')
+  if (!auth) return NextResponse.json({ error: 'No auth header' }, { status: 401 })
+
+  const url = `${API_BASE}/debug/auth-test`
+  try {
+    const upstream = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ test: true }),
+      cache: 'no-store',
+    })
+    const data = await upstream.text()
+    return new NextResponse(data, {
+      status: upstream.status,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  } catch (e) {
+    return NextResponse.json({ error: `Debug fetch failed: ${e instanceof Error ? e.message : String(e)}` }, { status: 502 })
+  }
 }
 export async function POST(req: NextRequest, ctx: RouteContext) {
   return proxy(req, ctx.params.path)
