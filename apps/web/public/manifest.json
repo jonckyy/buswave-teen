@@ -1,20 +1,24 @@
 {
   "name": "BusWave — TEC Live Tracker",
   "short_name": "BusWave",
+  "description": "Real-time bus tracking for the TEC network in Belgium",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#0A0E17",
   "theme_color": "#00D4FF",
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
