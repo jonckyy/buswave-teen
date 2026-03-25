@@ -15,10 +15,12 @@ test.describe('Home page', () => {
 
   test('debug widget shows live bus count', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByText('Live buses')).toBeVisible()
-    // bus count should be a number > 0
-    const busRow = page.locator('div.flex.items-center', { hasText: /^Live buses/ })
-    await expect(busRow.locator('span.text-\\[\\#00D4FF\\]')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText('Live buses')).toBeVisible({ timeout: 15_000 })
+    // The bus count link should be visible (rendered as a Link to /live)
+    const liveLink = page.locator('a[href="/live"]').first()
+    await expect(liveLink).toBeVisible({ timeout: 15_000 })
+    const text = await liveLink.textContent()
+    expect(Number(text?.trim())).toBeGreaterThan(0)
   })
 
   test('no AlertsBanner on home page', async ({ page }) => {

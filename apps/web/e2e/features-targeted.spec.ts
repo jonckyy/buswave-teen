@@ -1,0 +1,165 @@
+import { test, expect } from '@playwright/test'
+
+// ─── 1. Search state persistence ─────────────────────────────────────────────
+test.describe('Search state persistence', () => {
+  test('typing a query pushes ?q=<value> into the URL via router.replace', async ({ page }) => {
+    await page.goto('/search')
+    const input = page.locator('input[placeholder*="ligne"]').first()
+    await expect(input).toBeVisible({ timeout: 15_000 })
+    await input.fill('12')
+    // router.replace is called inside a useEffect — wait for it
+    await page.waitForFunction(
+      () => window.location.search.includes('q=12'),
+      { timeout: 5_000 }
+    )
+    expect(page.url()).toContain('q=12')
+  })
+
+  test('navigating to /search?q=12 pre-fills the input', async ({ page }) => {
+    await page.goto('/search?q=12')
+    // The SearchPageInner initialises query from searchParams.get('q')
+    const input = page.locator('input[placeholder*="ligne"]').first()
+    await expect(input).toBeVisible({ timeout: 15_000 })
+    await expect(input).toHaveValue('12', { timeout: 10_000 })
+  })
+
+  test('results appear when pre-filled query is present', async ({ page }) => {
+    await page.goto('/search?q=12')
+    // Results are <button> elements rendered by LineCard — text contains the line short name
+    // and long name.  We just need at least one result to appear.
+    await expect(page.locator('button').filter({ hasText: /Ligne TEC/i }).first()).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('navigating away and back preserves the query in the input', async ({ page }) => {
+    await page.goto('/search?q=12')
+    const input = page.locator('input[placeholder*="ligne"]').first()
+    await expect(input).toHaveValue('12', { timeout: 10_000 })
+    // Navigate away then come back via browser back
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    await page.goBack()
+    await page.waitForLoadState('networkidle')
+    // URL still has ?q=12 (router.replace wrote it)
+    expect(page.url()).toContain('q=12')
+    const inputBack = page.locator('input[placeholder*="ligne"]').first()
+    await expect(inputBack).toHaveValue('12', { timeout: 10_000 })
+  })
+})
+
+// ─── 2. Favorite → map navigation ────────────────────────────────────────────
+test.describe('Favorite card navigates to map', () => {
+  test('clicking a favorite BusCard navigates to /map with stopId and routeId params', async ({ page }) => {
+    // Inject a favorite before page load via localStorage
+    await page.goto('/')
+    await page.evaluate(() => {
+      localStorage.setItem(
+        'buswave-favorites',
+        JSON.stringify({
+          state: {
+            favoriteIds: ['150:10'],
+            favorites: [
+              {
+                id: 'fav1',
+                stopId: '150',
+                routeId: '10',
+                userId: null,
+                label: 'Test Stop',
+              },
+            ],
+          },
+          version: 0,
+        })
+      )
+    })
+    await page.reload()
+    await page.waitForLoadState('networkidle')
+    // The favorite renders because the home body showed "Ligne 10" and "150" in debug.
+    // BusCard displays stopId ("150") before async stopData resolves, and "Ligne 10" label.
+    // The card itself is a <Link href="/map?stopId=150&routeId=10">
+    const card = page.locator('a[href*="stopId=150"]').first()
+    await expect(card).toBeVisible({ timeout: 15_000 })
+    // Confirm the href has both params
+    const href = await card.getAttribute('href')
+    expect(href).toContain('stopId=150')
+    expect(href).toContain('routeId=10')
+    // Click it — should navigate to /map
+    await card.click()
+    await page.waitForURL(/\/map/, { timeout: 10_000 })
+    const url = page.url()
+    expect(url).toContain('/map')
+    expect(url).toContain('stopId=150')
+    expect(url).toContain('routeId=10')
+  })
+
+  test('the X button does NOT trigger navigation (only removes the favorite)', async ({ page }) => {
+    await page.goto('/')
+    await page.evaluate(() => {
+      localStorage.setItem(
+        'buswave-favorites',
+        JSON.stringify({
+          state: {
+            favoriteIds: ['150:10'],
+            favorites: [
+              {
+                id: 'fav1',
+                stopId: '150',
+                routeId: '10',
+                userId: null,
+                label: 'Test Stop',
+              },
+            ],
+          },
+          version: 0,
+        })
+      )
+    })
+    await page.reload()
+    await page.waitForLoadState('networkidle')
+    const card = page.locator('a[href*="stopId=150"]').first()
+    await expect(card).toBeVisible({ timeout: 15_000 })
+    // Click the X button inside the card
+    const xBtn = card.locator('button[aria-label="Retirer des favoris"]').first()
+    await expect(xBtn).toBeVisible()
+    await xBtn.click()
+    // Still on home page — did not navigate
+    await page.waitForTimeout(500)
+    expect(page.url()).not.toContain('/map')
+    // Card should be gone
+    await expect(card).not.toBeVisible({ timeout: 5_000 })
+  })
+})
+
+// ─── 3. Live buses page ───────────────────────────────────────────────────────
+test.describe('Live buses page', () => {
+  test('/live route exists and renders content (not 404)', async ({ page }) => {
+    await page.goto('/live')
+    await page.waitForLoadState('networkidle')
+    // Check for Next.js 404 page specifically (h2 with "This page could not be found.")
+    const is404 = await page.locator('h2:has-text("This page could not be found")').isVisible().catch(() => false)
+    if (is404) {
+      throw new Error('/live returned 404 — the page route has not been deployed yet')
+    }
+    // Some meaningful content should be visible
+    const mainContent = page.locator('main, h1, h2')
+    await expect(mainContent.first()).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('clicking the Live buses count on home navigates to /live', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    // Wait for the debug panel to resolve: "Live buses" label + the count value
+    await expect(page.getByText('Live buses')).toBeVisible({ timeout: 15_000 })
+    // The bus count is rendered as a <Link href="/live"> inside StatusRow when href is set.
+    // Source: valueEl = href ? <Link href={href}>...</Link> : <span>...</span>
+    // So the link text will be the entity count number.
+    const liveLink = page.locator('a[href="/live"]').first()
+    await expect(liveLink).toBeVisible({ timeout: 20_000 })
+    const linkText = await liveLink.textContent()
+    console.log('Live buses link text:', linkText)
+    // Should be a number
+    expect(Number(linkText?.trim())).toBeGreaterThan(0)
+    await liveLink.click()
+    await page.waitForURL(/\/live/, { timeout: 10_000 })
+    expect(page.url()).toContain('/live')
+  })
+})
