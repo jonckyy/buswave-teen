@@ -39,14 +39,14 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
 
   async function handleSave() {
     setSaveError(null)
+    let pushWarning = ''
 
-    // Ensure push is subscribed
+    // Try to subscribe to push (non-blocking — settings are saved regardless)
     if (!isSubscribed && (timeEnabled || distanceEnabled || offrouteEnabled)) {
       try {
         await subscribe()
       } catch (err) {
-        setSaveError(`Push subscription failed: ${err instanceof Error ? err.message : String(err)}`)
-        return
+        pushWarning = `Push: ${err instanceof Error ? err.message : String(err)}`
       }
     }
 
@@ -59,7 +59,11 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
         offrouteEnabled,
         offrouteMeters,
       })
-      onClose()
+      if (pushWarning) {
+        setSaveError(`Paramètres enregistrés, mais l'activation push a échoué. ${pushWarning}`)
+      } else {
+        onClose()
+      }
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : String(err))
     }

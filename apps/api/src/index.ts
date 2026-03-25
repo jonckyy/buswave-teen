@@ -21,7 +21,16 @@ app.use(
 )
 
 // Health check — version helps confirm Railway deployed latest code
-app.get('/health', (c) => c.json({ ok: true, commit: '7ff85e8' }))
+app.get('/health', async (c) => {
+  const { isConfigured, getVapidPublicKey } = await import('./lib/web-push.js')
+  const pubKey = getVapidPublicKey()
+  return c.json({
+    ok: true,
+    commit: '8312306',
+    vapid: isConfigured(),
+    vapidKeyLen: pubKey.length,
+  })
+})
 
 // Debug: surface vehicle fetch errors
 app.get('/debug/vehicles', async (c) => {

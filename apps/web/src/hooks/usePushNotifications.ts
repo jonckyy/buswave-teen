@@ -21,7 +21,7 @@ export function usePushNotifications() {
     if (!supported) return
     setPermission(Notification.permission as Permission)
 
-    navigator.serviceWorker.getRegistration('/sw.js').then(async (reg) => {
+    navigator.serviceWorker.getRegistration().then(async (reg) => {
       if (!reg) return
       const sub = await reg.pushManager.getSubscription()
       setIsSubscribed(!!sub)
@@ -44,25 +44,33 @@ export function usePushNotifications() {
   }, [])
 
   const subscribe = useCallback(async () => {
-    if (!supported) return
+    if (!supported) throw new Error('Push notifications not supported on this browser')
 
     const perm = await Notification.requestPermission()
     setPermission(perm as Permission)
-    if (perm !== 'granted') return
+    if (perm !== 'granted') throw new Error('Notification permission denied')
 
     const token = await getToken()
     if (!token) throw new Error('Not authenticated')
 
     const vapidKey = await getVapidKey()
+    if (!vapidKey) throw new Error('VAPID key not configured on server')
+    const appServerKey = urlBase64ToUint8Array(vapidKey)
 
-    // Register service worker
-    const reg = await navigator.serviceWorker.register('/sw.js')
-    await navigator.serviceWorker.ready
+    // Register service worker and wait for it to activate
+    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    const sw = await navigator.serviceWorker.ready
+
+    // Unsubscribe any existing push subscription (required when VAPID key changes)
+    const existingSub = await sw.pushManager.getSubscription()
+    if (existingSub) {
+      await existingSub.unsubscribe()
+    }
 
     // Subscribe to push
-    const sub = await reg.pushManager.subscribe({
+    const sub = await sw.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
+      applicationServerKey: appServerKey.buffer as ArrayBuffer,
     })
 
     const json = sub.toJSON()
@@ -84,7 +92,7 @@ export function usePushNotifications() {
   const unsubscribe = useCallback(async () => {
     const token = await getToken()
 
-    const reg = await navigator.serviceWorker.getRegistration('/sw.js')
+    const reg = await navigator.serviceWorker.getRegistration()
     if (reg) {
       const sub = await reg.pushManager.getSubscription()
       if (sub) {

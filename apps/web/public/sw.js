@@ -1,7 +1,22 @@
 // BusWave Service Worker — handles push notifications
 
+// Activate immediately (don't wait for open tabs to close)
+self.addEventListener('install', (event) => {
+  event.waitUntil(self.skipWaiting())
+})
+
+// Start controlling all pages immediately
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim())
+})
+
 self.addEventListener('push', (event) => {
-  const payload = event.data?.json()
+  let payload
+  try {
+    payload = event.data?.json()
+  } catch {
+    payload = null
+  }
   if (!payload) return
 
   event.waitUntil(
