@@ -5,6 +5,8 @@ import { vehiclesRouter } from './routes/vehicles.js'
 import { stopsRouter } from './routes/stops.js'
 import { routesRouter } from './routes/routes.js'
 import { alertsRouter } from './routes/alerts.js'
+import { notificationsRouter } from './routes/notifications.js'
+import { startNotificationScheduler } from './lib/notification-scheduler.js'
 
 const app = new Hono()
 
@@ -14,7 +16,7 @@ app.use(
   cors({
     origin: process.env['CORS_ORIGIN'] ?? '*',
     allowHeaders: ['Content-Type', 'Authorization'],
-    allowMethods: ['GET', 'POST', 'OPTIONS'],
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   })
 )
 
@@ -50,6 +52,10 @@ app.route('/api/realtime/vehicles', vehiclesRouter)
 app.route('/api/realtime/stops', stopsRouter)
 app.route('/api/realtime/routes', routesRouter)
 app.route('/api/realtime/alerts', alertsRouter)
+app.route('/api/notifications', notificationsRouter)
+
+// Start the push notification scheduler (30s interval)
+startNotificationScheduler()
 
 const port = Number(process.env['PORT'] ?? 3001)
 console.log(`BusWave API listening on http://localhost:${port}`)

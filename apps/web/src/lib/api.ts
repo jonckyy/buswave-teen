@@ -13,6 +13,9 @@ import type {
   GtfsRoute,
   GtfsStop,
   StopRoute,
+  NotificationSettings,
+  NotificationSettingsUpsert,
+  PushSubscriptionPayload,
 } from '@buswave/shared'
 
 const BASE = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001'
@@ -28,6 +31,24 @@ async function rawFetch<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { next: { revalidate: 0 } })
   if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
   return res.json() as Promise<T>
+}
+
+async function authFetch<T>(path: string, options: RequestInit & { token: string }): Promise<T> {
+  const { token, ...init } = options
+  const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...init.headers,
+    },
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error((body as { error?: string }).error ?? `API error ${res.status}: ${path}`)
+  }
+  const json = (await res.json()) as { data: T }
+  return json.data
 }
 
 export const api = {
@@ -81,4 +102,47 @@ export const api = {
     apiFetch<StopRoute[]>(`/api/realtime/stops/${encodeURIComponent(stopId)}/routes`),
 
   alerts: () => apiFetch<Alert[]>('/api/realtime/alerts'),
+
+  // ── Notifications ──────────────────────────────────────────────────────────
+  getVapidKey: () => apiFetch<{ publicKey: string }>('/api/notifications/vapid-key'),
+
+  subscribeToNotifications: (payload: PushSubscriptionPayload, token: string) =>
+    authFetch<{ ok: true }>('/api/notifications/subscribe', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      token,
+    }),
+
+  unsubscribeFromNotifications: (endpoint: string, token: string) =>
+    authFetch<{ ok: true }>('/api/notifications/subscribe', {
+      method: 'DELETE',
+      body: JSON.stringify({ endpoint }),
+      token,
+    }),
+
+  getNotificationSettings: (favoriteId: string, token: string) =>
+    authFetch<NotificationSettings | null>(`/api/notifications/settings/${encodeURIComponent(favoriteId)}`, {
+      method: 'GET',
+      token,
+    }),
+
+  updateNotificationSettings: (favoriteId: string, settings: NotificationSettingsUpsert, token: string) =>
+    authFetch<{ ok: true }>(`/api/notifications/settings/${encodeURIComponent(favoriteId)}`, {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+      token,
+    }),
+
+  getQuietHours: (token: string) =>
+    authFetch<{ quietStart: string; quietEnd: string }>('/api/notifications/quiet-hours', {
+      method: 'GET',
+      token,
+    }),
+
+  updateQuietHours: (quietStart: string, quietEnd: string, token: string) =>
+    authFetch<{ ok: true }>('/api/notifications/quiet-hours', {
+      method: 'PUT',
+      body: JSON.stringify({ quietStart, quietEnd }),
+      token,
+    }),
 }

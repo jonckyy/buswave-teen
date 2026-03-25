@@ -1,12 +1,16 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { MapPin, X, Map } from 'lucide-react'
+import { MapPin, X, Map, Bell } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useCountdown, formatCountdown } from '@/hooks/useCountdown'
 import { useFavoritesActions } from '@/hooks/useFavoritesActions'
+import { useUser } from '@/hooks/useUser'
+import { useFavoritesStore, selectFavorites } from '@/store/favorites'
 import { cn, delayColor, formatDelay } from '@/lib/utils'
+import { NotificationSettingsPanel } from '@/components/NotificationSettingsPanel'
 import type { StopArrival } from '@buswave/shared'
 
 interface BusCardProps {
@@ -44,6 +48,13 @@ function ArrivalRow({ arrival }: { arrival: StopArrival }) {
 
 export function BusCard({ stopId, routeId }: BusCardProps) {
   const { removeFavorite } = useFavoritesActions()
+  const { user } = useUser()
+  const favorites = useFavoritesStore(selectFavorites)
+  const [showNotifPanel, setShowNotifPanel] = useState(false)
+
+  const favorite = favorites.find(
+    (f) => f.stopId === stopId && (f.routeId ?? null) === routeId
+  )
 
   const mapParams = new URLSearchParams({ stopId })
   if (routeId) mapParams.set('routeId', routeId)
@@ -83,6 +94,16 @@ export function BusCard({ stopId, routeId }: BusCardProps) {
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <Map className="h-3.5 w-3.5 text-muted" />
+          {user && favorite && (
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowNotifPanel(true) }}
+              className="text-muted hover:text-accent-cyan transition-colors p-0.5"
+              aria-label="Notifications"
+              title="Configurer les notifications"
+            >
+              <Bell className="h-4 w-4" />
+            </button>
+          )}
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeFavorite(stopId, routeId) }}
             className="text-muted hover:text-large-delay transition-colors p-0.5"
@@ -108,6 +129,15 @@ export function BusCard({ stopId, routeId }: BusCardProps) {
         </div>
       ) : (
         <p className="text-sm text-muted text-center py-2">Aucun passage prévu</p>
+      )}
+
+      {showNotifPanel && favorite && (
+        <NotificationSettingsPanel
+          favoriteId={favorite.id}
+          stopName={stopData?.stop_name ?? stopId}
+          routeId={routeId}
+          onClose={() => setShowNotifPanel(false)}
+        />
       )}
     </Link>
   )
