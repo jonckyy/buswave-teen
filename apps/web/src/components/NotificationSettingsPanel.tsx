@@ -65,7 +65,9 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
         onClose()
       }
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : String(err))
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[NotificationSettings] Save error:', msg, err)
+      setSaveError(msg)
     }
   }
 

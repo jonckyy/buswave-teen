@@ -12,10 +12,23 @@ export function useNotificationSettings(favoriteId: string | null) {
 
   const getToken = async (): Promise<string> => {
     // Use getUser() to trigger token refresh if expired, then read the fresh session
-    const { data: { user }, error } = await supabase.auth.getUser()
-    if (error || !user) throw new Error('Not authenticated')
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.access_token) throw new Error('Not authenticated')
+    let user, error
+    try {
+      const res = await supabase.auth.getUser()
+      user = res.data.user
+      error = res.error
+    } catch (e) {
+      throw new Error(`Auth getUser failed: ${e instanceof Error ? e.message : String(e)}`)
+    }
+    if (error || !user) throw new Error(`Not authenticated: ${error?.message ?? 'no user'}`)
+    let session
+    try {
+      const res = await supabase.auth.getSession()
+      session = res.data.session
+    } catch (e) {
+      throw new Error(`Auth getSession failed: ${e instanceof Error ? e.message : String(e)}`)
+    }
+    if (!session?.access_token) throw new Error('No session token')
     return session.access_token
   }
 

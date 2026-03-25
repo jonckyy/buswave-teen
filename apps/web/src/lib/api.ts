@@ -35,14 +35,19 @@ async function rawFetch<T>(path: string): Promise<T> {
 
 async function authFetch<T>(path: string, options: RequestInit & { token: string }): Promise<T> {
   const { token, ...init } = options
-  const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...init.headers,
-    },
-  })
+  let res: Response
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...init.headers,
+      },
+    })
+  } catch (e) {
+    throw new Error(`Network error on ${init.method ?? 'GET'} ${path}: ${e instanceof Error ? e.message : String(e)}`)
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     throw new Error((body as { error?: string }).error ?? `API error ${res.status}: ${path}`)
