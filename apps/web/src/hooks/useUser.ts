@@ -26,6 +26,21 @@ export function useUser(): AuthUser {
   const supabase = useMemo(() => createSupabaseClient(), [])
 
   useEffect(() => {
+    // Check for existing session immediately (handles page refresh while signed in)
+    supabase.auth.getUser().then(async ({ data: { user: u } }) => {
+      if (u) {
+        setUser(u)
+        const { data } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', u.id)
+          .single()
+        setRole((data?.role as UserRole) ?? 'user')
+      }
+      setLoading(false)
+    })
+
+    // Also subscribe to future sign-in / sign-out events
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {

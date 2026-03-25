@@ -52,7 +52,7 @@ export function NavBar() {
                 )}
                 <Link
                   href="/settings"
-                  className="hidden sm:flex items-center gap-1 text-xs text-muted px-2 hover:text-white transition-colors"
+                  className="flex items-center gap-1 text-xs text-muted px-2 hover:text-white transition-colors"
                 >
                   <User className="h-3 w-3" />
                   {user.email?.split('@')[0]}
