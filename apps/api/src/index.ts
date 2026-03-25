@@ -33,7 +33,7 @@ app.get('/health', async (c) => {
   const vapidError = validateVapidKeys()
   return c.json({
     ok: true,
-    commit: 'dbtest03',
+    commit: 'dbtest04',
     vapid: isConfigured(),
     vapidKeyLen: pubKey.length,
     vapidValid: vapidError === null,
@@ -73,7 +73,13 @@ app.get('/debug/db-test', async (c) => {
     const sbUrl = process.env['SUPABASE_URL'] ?? 'MISSING'
     const sbKey = process.env['SUPABASE_SERVICE_KEY'] ?? 'MISSING'
     steps.push(`url=${sbUrl.slice(0, 30)}...`)
-    steps.push(`key_role=${sbKey.includes('service_role') ? 'service_role' : sbKey.slice(0, 20)}...`)
+    // Decode JWT payload to check role
+    try {
+      const payload = JSON.parse(Buffer.from(sbKey.split('.')[1], 'base64').toString())
+      steps.push(`key_role=${payload.role} ref=${payload.ref}`)
+    } catch {
+      steps.push(`key_decode_failed, first20=${sbKey.slice(0, 20)}`)
+    }
 
     // Test: raw favorites count to check if service_role bypasses RLS
     const { count: favCount, error: favCountErr } = await supabase
