@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createSupabaseClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 
@@ -19,17 +20,10 @@ export function useUser(): AuthUser {
   const [user, setUser] = useState<User | null>(null)
   const [role, setRole] = useState<UserRole | null>(null)
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
-  const supabase = createSupabaseClient()
-
-  async function fetchRole(userId: string) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single()
-    setRole((data?.role as UserRole) ?? 'user')
-  }
+  // Stable client reference — createBrowserClient is a singleton per URL+key
+  const supabase = useMemo(() => createSupabaseClient(), [])
 
   useEffect(() => {
     const {
@@ -38,7 +32,12 @@ export function useUser(): AuthUser {
       const u = session?.user ?? null
       setUser(u)
       if (u) {
-        await fetchRole(u.id)
+        const { data } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', u.id)
+          .single()
+        setRole((data?.role as UserRole) ?? 'user')
       } else {
         setRole(null)
       }
@@ -46,12 +45,12 @@ export function useUser(): AuthUser {
     })
 
     return () => subscription.unsubscribe()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [supabase])
 
   async function signOut() {
     await supabase.auth.signOut()
-    window.location.href = '/'
+    router.push('/')
+    router.refresh()
   }
 
   return {

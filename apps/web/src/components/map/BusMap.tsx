@@ -8,6 +8,7 @@ import { X, Bus, Navigation, Gauge, Clock, MapPin, Hash, ArrowRight, Star } from
 import { api } from '@/lib/api'
 import { cn, delayColor, haversineKm, shapeDistanceKm } from '@/lib/utils'
 import { useFavoritesStore, selectFavoriteIds } from '@/store/favorites'
+import { useFavoritesActions } from '@/hooks/useFavoritesActions'
 import type { VehicleDetails, VehiclePosition, GtfsStop } from '@buswave/shared'
 
 // Fix Leaflet default icon in Next.js
@@ -190,8 +191,7 @@ function StopInfoPanel({ stop, routeId, vehicles, shapeSegments, stopDirMap, onC
   const [now, setNow] = useState(Math.floor(Date.now() / 1000))
 
   const favoriteIds = useFavoritesStore(selectFavoriteIds)
-  const addFavorite = useFavoritesStore((s) => s.addFavorite)
-  const removeFavorite = useFavoritesStore((s) => s.removeFavorite)
+  const { addFavorite, removeFavorite } = useFavoritesActions()
   const favKey = `${stop.stop_id}:${routeId ?? ''}`
   const isFav = favoriteIds.includes(favKey)
 

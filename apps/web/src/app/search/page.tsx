@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Search, ChevronDown, ChevronRight, MapPin, Check, Plus, Star, Bus, ArrowRight } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useFavoritesStore } from '@/store/favorites'
+import { useFavoritesActions } from '@/hooks/useFavoritesActions'
 import { cn } from '@/lib/utils'
 import type { GtfsRoute, GtfsStop, RouteDirection, StopRoute, VehiclePosition } from '@buswave/shared'
 
@@ -69,7 +70,7 @@ function LineCard({ route, isActive }: { route: GtfsRoute; isActive: boolean }) 
   const [expanded, setExpanded] = useState(false)
   const [activeDir, setActiveDir] = useState<0 | 1>(0)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const addFavorite = useFavoritesStore((s) => s.addFavorite)
+  const { addFavorite } = useFavoritesActions()
 
   const { data: directions = [], isLoading } = useQuery({
     queryKey: ['route-stops', route.route_id],
@@ -235,7 +236,7 @@ function LineCard({ route, isActive }: { route: GtfsRoute; isActive: boolean }) 
 // ── Stop search ───────────────────────────────────────────────────────────
 
 function StopRouteRow({ stop, route, isActive }: { stop: GtfsStop; route: StopRoute; isActive: boolean }) {
-  const addFavorite = useFavoritesStore((s) => s.addFavorite)
+  const { addFavorite } = useFavoritesActions()
   const isFav = useFavoritesStore((s) => s.isFavorite(stop.stop_id, route.route_id))
 
   return (

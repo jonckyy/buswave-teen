@@ -50,10 +50,13 @@ export function NavBar() {
                     <Shield className="h-3.5 w-3.5" />
                   </span>
                 )}
-                <span className="hidden sm:flex items-center gap-1 text-xs text-muted px-2">
+                <Link
+                  href="/settings"
+                  className="hidden sm:flex items-center gap-1 text-xs text-muted px-2 hover:text-white transition-colors"
+                >
                   <User className="h-3 w-3" />
                   {user.email?.split('@')[0]}
-                </span>
+                </Link>
                 <button
                   onClick={signOut}
                   title="Se déconnecter"

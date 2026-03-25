@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { MapPin, X, Map } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useCountdown, formatCountdown } from '@/hooks/useCountdown'
-import { useFavoritesStore } from '@/store/favorites'
+import { useFavoritesActions } from '@/hooks/useFavoritesActions'
 import { cn, delayColor, formatDelay } from '@/lib/utils'
 import type { StopArrival } from '@buswave/shared'
 
@@ -43,7 +43,7 @@ function ArrivalRow({ arrival }: { arrival: StopArrival }) {
 }
 
 export function BusCard({ stopId, routeId }: BusCardProps) {
-  const removeFavorite = useFavoritesStore((s) => s.removeFavorite)
+  const { removeFavorite } = useFavoritesActions()
 
   const mapParams = new URLSearchParams({ stopId })
   if (routeId) mapParams.set('routeId', routeId)

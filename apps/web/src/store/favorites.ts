@@ -12,6 +12,8 @@ interface FavoritesState {
   addFavorite: (fav: FavoriteInsert) => void
   removeFavorite: (stopId: string, routeId: string | null) => void
   isFavorite: (stopId: string, routeId: string | null) => boolean
+  setFavorites: (favs: Favorite[]) => void
+  clearFavorites: () => void
 }
 
 function compositeKey(stopId: string, routeId: string | null) {
@@ -51,6 +53,17 @@ export const useFavoritesStore = create<FavoritesState>()(
 
       isFavorite(stopId, routeId) {
         return get().favoriteIds.includes(compositeKey(stopId, routeId))
+      },
+
+      setFavorites(favs) {
+        set({
+          favorites: favs,
+          favoriteIds: favs.map((f) => compositeKey(f.stopId, f.routeId ?? null)),
+        })
+      },
+
+      clearFavorites() {
+        set({ favorites: [], favoriteIds: [] })
       },
     }),
     {
