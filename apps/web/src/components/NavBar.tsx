@@ -2,20 +2,23 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { AlertTriangle, Bus, LogIn, LogOut, Map, Search, Shield, Star, User } from 'lucide-react'
+import { AlertTriangle, Bus, LogIn, LogOut, Map, Search, Settings, Shield, Star, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUser } from '@/hooks/useUser'
-
-const navItems = [
-  { href: '/', label: 'Favoris', icon: Star },
-  { href: '/search', label: 'Recherche', icon: Search },
-  { href: '/map', label: 'Carte', icon: Map },
-  { href: '/alerts', label: 'Alertes', icon: AlertTriangle },
-]
+import { useFeatureFlags } from '@/hooks/useFeatureFlags'
 
 export function NavBar() {
   const pathname = usePathname()
   const { user, isAdmin, loading, signOut } = useUser()
+  const flags = useFeatureFlags()
+
+  const navItems = [
+    { href: '/', label: 'Favoris', icon: Star },
+    { href: '/search', label: 'Recherche', icon: Search },
+    { href: '/map', label: 'Carte', icon: Map },
+    ...(flags.showAlertsPage ? [{ href: '/alerts', label: 'Alertes', icon: AlertTriangle }] : []),
+    ...(flags.showLivePage ? [{ href: '/live', label: 'Live', icon: Bus }] : []),
+  ]
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur">
@@ -46,9 +49,9 @@ export function NavBar() {
             user ? (
               <div className="flex items-center gap-1 ml-1">
                 {isAdmin && (
-                  <span title="Administrateur" className="text-yellow-400">
+                  <Link href="/admin" title="Administration" className="text-yellow-400 hover:text-yellow-300 transition-colors">
                     <Shield className="h-3.5 w-3.5" />
-                  </span>
+                  </Link>
                 )}
                 <Link
                   href="/settings"

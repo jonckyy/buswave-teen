@@ -8,12 +8,7 @@ import { useFavoritesStore, selectFavorites } from '@/store/favorites'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
 import { createSupabaseClient } from '@/lib/supabase'
 import { api } from '@/lib/api'
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'Administrateur',
-  editor: 'Éditeur',
-  user: 'Utilisateur',
-}
+import { ROLE_LABELS } from '@buswave/shared'
 
 export default function SettingsPage() {
   const router = useRouter()

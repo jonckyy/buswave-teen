@@ -5,13 +5,15 @@ import { Search } from 'lucide-react'
 import { useFavoritesStore, selectFavorites } from '@/store/favorites'
 import { BusCard } from '@/components/bus/BusCard'
 import { DebugStatus } from '@/components/DebugStatus'
+import { useFeatureFlags } from '@/hooks/useFeatureFlags'
 
 export default function HomePage() {
   const favorites = useFavoritesStore(selectFavorites)
+  const flags = useFeatureFlags()
 
   return (
     <div>
-      <DebugStatus />
+      {flags.showDebugPanel && <DebugStatus />}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">Mes favoris</h1>
         <Link

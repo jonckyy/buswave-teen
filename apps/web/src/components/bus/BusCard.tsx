@@ -11,6 +11,7 @@ import { useUser } from '@/hooks/useUser'
 import { useFavoritesStore, selectFavorites } from '@/store/favorites'
 import { cn, delayColor, formatDelay } from '@/lib/utils'
 import { NotificationSettingsPanel } from '@/components/NotificationSettingsPanel'
+import { useFeatureFlags } from '@/hooks/useFeatureFlags'
 import type { StopArrival } from '@buswave/shared'
 
 interface BusCardProps {
@@ -18,7 +19,7 @@ interface BusCardProps {
   routeId: string | null
 }
 
-function ArrivalRow({ arrival }: { arrival: StopArrival }) {
+function ArrivalRow({ arrival, showDelayBadges = true }: { arrival: StopArrival; showDelayBadges?: boolean }) {
   const countdown = useCountdown(arrival.predictedArrivalUnix)
   const color = delayColor(arrival.delaySeconds)
 
@@ -32,7 +33,7 @@ function ArrivalRow({ arrival }: { arrival: StopArrival }) {
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {/* Delay badge */}
-        {Math.abs(arrival.delaySeconds) > 30 && (
+        {showDelayBadges && Math.abs(arrival.delaySeconds) > 30 && (
           <span className={cn('flex items-center gap-1 text-xs', color)}>
             <span className={cn('h-1.5 w-1.5 rounded-full bg-current animate-pulse-dot')} />
             {formatDelay(arrival.delaySeconds)}
@@ -50,6 +51,7 @@ export function BusCard({ stopId, routeId }: BusCardProps) {
   const { removeFavorite } = useFavoritesActions()
   const { user } = useUser()
   const favorites = useFavoritesStore(selectFavorites)
+  const flags = useFeatureFlags()
   const [showNotifPanel, setShowNotifPanel] = useState(false)
 
   const favorite = favorites.find(
@@ -72,7 +74,7 @@ export function BusCard({ stopId, routeId }: BusCardProps) {
     refetchInterval: 10_000,
   })
 
-  const next3 = arrivals.slice(0, 3)
+  const next3 = arrivals.slice(0, flags.arrivalsPerCard)
 
   return (
     <Link
@@ -124,7 +126,7 @@ export function BusCard({ stopId, routeId }: BusCardProps) {
       ) : next3.length > 0 ? (
         <div>
           {next3.map((a) => (
-            <ArrivalRow key={`${a.tripId}-${a.stopSequence}`} arrival={a} />
+            <ArrivalRow key={`${a.tripId}-${a.stopSequence}`} arrival={a} showDelayBadges={flags.showDelayBadges} />
           ))}
         </div>
       ) : (

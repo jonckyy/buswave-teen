@@ -16,6 +16,9 @@ import type {
   NotificationSettings,
   NotificationSettingsUpsert,
   PushSubscriptionPayload,
+  RoleConfig,
+  RoleConfigUpdate,
+  AdminUserRow,
 } from '@buswave/shared'
 
 const BASE = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001'
@@ -153,6 +156,27 @@ export const api = {
     authFetch<{ ok: true }>('/api/notifications/quiet-hours', {
       method: 'PUT',
       body: JSON.stringify({ quietStart, quietEnd }),
+      token,
+    }),
+
+  // ── Admin ──────────────────────────────────────────────────────────────────
+  getRoleConfig: () =>
+    apiFetch<RoleConfig[]>('/api/admin/role-config'),
+
+  getAdminUsers: (token: string) =>
+    authFetch<AdminUserRow[]>('/api/admin/users', { method: 'GET', token }),
+
+  updateRoleConfig: (role: string, update: RoleConfigUpdate, token: string) =>
+    authFetch<{ ok: true }>(`/api/admin/role-config/${encodeURIComponent(role)}`, {
+      method: 'PUT',
+      body: JSON.stringify(update),
+      token,
+    }),
+
+  updateUserRole: (userId: string, role: string, token: string) =>
+    authFetch<{ ok: true }>(`/api/admin/users/${encodeURIComponent(userId)}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
       token,
     }),
 }

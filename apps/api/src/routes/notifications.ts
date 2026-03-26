@@ -2,7 +2,6 @@ import { Hono } from 'hono'
 import { requireAuth } from '../middleware/auth.js'
 import { supabase } from '../lib/supabase.js'
 import { getVapidPublicKey } from '../lib/web-push.js'
-import { PUSH_LIMITS } from '@buswave/shared'
 import type { ApiResponse, NotificationSettings } from '@buswave/shared'
 
 export const notificationsRouter = new Hono()
@@ -136,8 +135,15 @@ notificationsRouter.put('/settings/:favoriteId', requireAuth, async (c) => {
         .neq('favorite_id', favoriteId)
         .or('time_enabled.eq.true,distance_enabled.eq.true,offroute_enabled.eq.true')
 
-      console.log(`[notifications] limit check: count=${count} error=${countErr?.message}`)
-      const limit = PUSH_LIMITS[userRole] ?? PUSH_LIMITS['user'] ?? 3
+      // Fetch limit from role_config DB table (fallback to 3)
+      let limit = 3
+      const { data: rc } = await supabase
+        .from('role_config')
+        .select('max_push_favorites')
+        .eq('role', userRole)
+        .maybeSingle()
+      if (rc) limit = rc.max_push_favorites
+      console.log(`[notifications] limit check: count=${count} limit=${limit} error=${countErr?.message}`)
       if ((count ?? 0) >= limit) {
         return c.json(
           { error: `Limite atteinte : ${limit} favoris avec notifications maximum.` },

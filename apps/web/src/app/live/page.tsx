@@ -3,13 +3,22 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ArrowLeft, Bus, Navigation, Gauge } from 'lucide-react'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { useFeatureFlags } from '@/hooks/useFeatureFlags'
 
 type Tab = 'bus' | 'lignes'
 
 export default function LivePage() {
+  const flags = useFeatureFlags()
+  const router = useRouter()
+
+  if (!flags.loading && !flags.showLivePage) {
+    router.replace('/')
+    return null
+  }
   const [tab, setTab] = useState<Tab>('lignes')
 
   const { data: vehicles = [], isLoading, dataUpdatedAt } = useQuery({

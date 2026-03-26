@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { Bell, Clock, MapPin, AlertTriangle, X, Loader2 } from 'lucide-react'
 import { useNotificationSettings } from '@/hooks/useNotificationSettings'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
+import { useFeatureFlags } from '@/hooks/useFeatureFlags'
 
 interface Props {
   favoriteId: string
@@ -16,6 +17,8 @@ interface Props {
 export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClose }: Props) {
   const { settings, isLoading, updateSettings, isUpdating, error } = useNotificationSettings(favoriteId)
   const { supported, permission, isSubscribed, subscribe } = usePushNotifications()
+  const flags = useFeatureFlags()
+  const triggers = flags.allowedTriggerTypes
 
   const [timeEnabled, setTimeEnabled] = useState(false)
   const [timeMinutes, setTimeMinutes] = useState(5)
@@ -171,6 +174,7 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
             </div>
 
             {/* Distance alert */}
+            {triggers.includes('distance') && (
             <div className="space-y-3 rounded-xl border border-white/5 bg-[#0A0E17] p-4">
               <label className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -206,8 +210,10 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
                 </div>
               )}
             </div>
+            )}
 
             {/* Off-route alert */}
+            {triggers.includes('offroute') && (
             <div className="space-y-3 rounded-xl border border-white/5 bg-[#0A0E17] p-4">
               <label className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -243,6 +249,7 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
                 </div>
               )}
             </div>
+            )}
 
             {/* Error */}
             {(saveError || error) && (
