@@ -103,11 +103,11 @@ function UsersSection() {
             <thead>
               <tr className="border-b border-white/10 text-left text-xs text-[#8892B0]">
                 <th className="pb-2 pr-4">Email</th>
-                <th className="pb-2 pr-4">Role</th>
-                <th className="pb-2 pr-4 text-center">Favoris</th>
-                <th className="pb-2 pr-4 text-center">Push</th>
-                <th className="pb-2 pr-4 text-center">Notifs</th>
-                <th className="pb-2">Inscrit</th>
+                <th className="pb-2 pr-4" title="Medium = accès étendu, Standard = accès basique">Role</th>
+                <th className="pb-2 pr-4 text-center" title="Nombre d'arrêts enregistrés en favoris">Favoris</th>
+                <th className="pb-2 pr-4 text-center" title="Nombre d'appareils abonnés aux notifications push">Push</th>
+                <th className="pb-2 pr-4 text-center" title="Nombre total de notifications push reçues">Notifs</th>
+                <th className="pb-2" title="Date d'inscription">Inscrit</th>
               </tr>
             </thead>
             <tbody>
@@ -270,9 +270,9 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
       <div className="mb-5">
         <h3 className="text-xs font-semibold text-[#8892B0] uppercase tracking-wider mb-3">Limites</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <NumberInput label="Max favoris" value={maxFavorites} onChange={setMaxFavorites} min={1} max={999} />
-          <NumberInput label="Max push favoris" value={maxPushFavorites} onChange={setMaxPushFavorites} min={0} max={100} />
-          <NumberInput label="Max notifications" value={maxPushNotifications} onChange={setMaxPushNotifications} min={0} max={999} />
+          <NumberInput label="Max favoris" value={maxFavorites} onChange={setMaxFavorites} min={1} max={999} tooltip="Nombre maximum d'arrêts favoris que l'utilisateur peut enregistrer" />
+          <NumberInput label="Max push favoris" value={maxPushFavorites} onChange={setMaxPushFavorites} min={0} max={100} tooltip="Nombre maximum de favoris pouvant avoir des notifications push actives" />
+          <NumberInput label="Max notifications" value={maxPushNotifications} onChange={setMaxPushNotifications} min={0} max={999} tooltip="Nombre total maximum de notifications push envoyées à l'utilisateur" />
         </div>
       </div>
 
@@ -280,12 +280,12 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
       <div className="mb-5">
         <h3 className="text-xs font-semibold text-[#8892B0] uppercase tracking-wider mb-3">Visibilite</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          <Toggle label="Debug panel" checked={showDebugPanel} onChange={setShowDebugPanel} />
-          <Toggle label="Donnees techniques" checked={showTechnicalData} onChange={setShowTechnicalData} />
-          <Toggle label="Metriques distance" checked={showDistanceMetrics} onChange={setShowDistanceMetrics} />
-          <Toggle label="Badges retard" checked={showDelayBadges} onChange={setShowDelayBadges} />
-          <Toggle label="Page Live" checked={showLivePage} onChange={setShowLivePage} />
-          <Toggle label="Page Alertes" checked={showAlertsPage} onChange={setShowAlertsPage} />
+          <Toggle label="Debug panel" checked={showDebugPanel} onChange={setShowDebugPanel} tooltip="Affiche le panneau de statut système (Railway API, GTFS-RT, bus actifs) sur la page d'accueil" />
+          <Toggle label="Donnees techniques" checked={showTechnicalData} onChange={setShowTechnicalData} tooltip="Affiche les identifiants techniques (trip ID, coordonnees GPS) dans les panneaux d'info sur la carte" />
+          <Toggle label="Metriques distance" checked={showDistanceMetrics} onChange={setShowDistanceMetrics} tooltip="Affiche la distance route/vol d'oiseau entre le bus et l'arrêt dans les panneaux de la carte" />
+          <Toggle label="Badges retard" checked={showDelayBadges} onChange={setShowDelayBadges} tooltip="Affiche les badges de retard/avance (ex: +2min, -1min) sur les cartes de favoris" />
+          <Toggle label="Page Live" checked={showLivePage} onChange={setShowLivePage} tooltip="Donne accès à la page 'En temps réel' listant tous les bus et lignes actifs" />
+          <Toggle label="Page Alertes" checked={showAlertsPage} onChange={setShowAlertsPage} tooltip="Donne accès à la page 'Alertes' affichant les perturbations TEC en cours" />
         </div>
       </div>
 
@@ -293,7 +293,7 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
       <div className="mb-5">
         <h3 className="text-xs font-semibold text-[#8892B0] uppercase tracking-wider mb-3">Affichage</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <NumberInput label="Arrivees par carte" value={arrivalsPerCard} onChange={setArrivalsPerCard} min={1} max={10} />
+          <NumberInput label="Arrivees par carte" value={arrivalsPerCard} onChange={setArrivalsPerCard} min={1} max={10} tooltip="Nombre de prochains passages affiches par carte de favori (1 à 10)" />
         </div>
       </div>
 
@@ -301,20 +301,20 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
       <div>
         <h3 className="text-xs font-semibold text-[#8892B0] uppercase tracking-wider mb-3">Types de notifications</h3>
         <div className="grid grid-cols-3 gap-2">
-          <Toggle label="Temps" checked={triggerTime} onChange={setTriggerTime} />
-          <Toggle label="Distance" checked={triggerDistance} onChange={setTriggerDistance} />
-          <Toggle label="Hors route" checked={triggerOffroute} onChange={setTriggerOffroute} />
+          <Toggle label="Temps" checked={triggerTime} onChange={setTriggerTime} tooltip="Permet de configurer des alertes basées sur le temps d'arrivée estimé (ex: notifier quand le bus arrive dans 5 min)" />
+          <Toggle label="Distance" checked={triggerDistance} onChange={setTriggerDistance} tooltip="Permet de configurer des alertes basées sur la distance du bus par rapport à l'arrêt (ex: notifier quand le bus est à 500m)" />
+          <Toggle label="Hors route" checked={triggerOffroute} onChange={setTriggerOffroute} tooltip="Permet de configurer des alertes quand un bus dévie de son itinéraire prévu au-delà d'un seuil configurable" />
         </div>
       </div>
     </section>
   )
 }
 
-function NumberInput({ label, value, onChange, min, max }: {
-  label: string; value: number; onChange: (v: number) => void; min: number; max: number
+function NumberInput({ label, value, onChange, min, max, tooltip }: {
+  label: string; value: number; onChange: (v: number) => void; min: number; max: number; tooltip?: string
 }) {
   return (
-    <label className="flex items-center justify-between gap-2 rounded-lg border border-white/5 bg-[#0A0E17] px-3 py-2">
+    <label className="flex items-center justify-between gap-2 rounded-lg border border-white/5 bg-[#0A0E17] px-3 py-2" title={tooltip}>
       <span className="text-xs text-[#8892B0]">{label}</span>
       <input
         type="number"
@@ -328,11 +328,11 @@ function NumberInput({ label, value, onChange, min, max }: {
   )
 }
 
-function Toggle({ label, checked, onChange }: {
-  label: string; checked: boolean; onChange: (v: boolean) => void
+function Toggle({ label, checked, onChange, tooltip }: {
+  label: string; checked: boolean; onChange: (v: boolean) => void; tooltip?: string
 }) {
   return (
-    <label className="flex items-center gap-2 rounded-lg border border-white/5 bg-[#0A0E17] px-3 py-2 cursor-pointer">
+    <label className="flex items-center gap-2 rounded-lg border border-white/5 bg-[#0A0E17] px-3 py-2 cursor-pointer" title={tooltip}>
       <input
         type="checkbox"
         checked={checked}
