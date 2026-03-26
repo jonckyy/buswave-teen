@@ -12,15 +12,15 @@ export function DebugStatus() {
     retry: 1,
   })
 
-  const { data: debug, isLoading: loadingVehicles, isError: vehiclesError } = useQuery({
-    queryKey: ['debug-vehicles'],
-    queryFn: api.debugVehicles,
+  const { data: vehicles, isLoading: loadingVehicles, isError: vehiclesError } = useQuery({
+    queryKey: ['all-vehicles-debug'],
+    queryFn: api.allVehicles,
     refetchInterval: 15_000,
     retry: 1,
   })
 
   const apiOnline = !healthError && health?.ok === true
-  const gtfsOk = !vehiclesError && debug?.ok === true
+  const gtfsOk = !vehiclesError && vehicles !== undefined
 
   return (
     <div className="mb-6 rounded-lg border border-white/10 bg-[#0d1220] px-4 py-3 font-mono text-xs">
@@ -36,13 +36,12 @@ export function DebugStatus() {
           label="GTFS-RT feed"
           loading={loadingVehicles}
           ok={gtfsOk}
-          value={debug ? undefined : undefined}
         />
         <StatusRow
           label="Live buses"
           loading={loadingVehicles}
           ok={gtfsOk}
-          value={debug?.entityCount !== undefined ? String(debug.entityCount) : undefined}
+          value={vehicles ? String(vehicles.length) : undefined}
           href="/live"
         />
       </div>

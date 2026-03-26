@@ -68,9 +68,6 @@ export const api = {
   health: () =>
     rawFetch<{ ok: boolean; commit: string }>('/health'),
 
-  debugVehicles: () =>
-    rawFetch<{ ok: boolean; entityCount: number }>('/debug/vehicles'),
-
   vehicleDetails: (routeId: string, tripId: string, stopId?: string) =>
     apiFetch<VehicleDetails>(
       `/api/realtime/vehicles/details?routeId=${encodeURIComponent(routeId)}&tripId=${encodeURIComponent(tripId)}${stopId ? `&stopId=${encodeURIComponent(stopId)}` : ''}`
