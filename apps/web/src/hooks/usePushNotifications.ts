@@ -76,7 +76,7 @@ export function usePushNotifications() {
     try {
       sub = await sw.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: appServerKey,
+        applicationServerKey: appServerKey as BufferSource,
       })
     } catch (pushErr) {
       const msg = pushErr instanceof Error ? pushErr.message : String(pushErr)
