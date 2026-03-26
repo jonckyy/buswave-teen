@@ -31,7 +31,7 @@ export default function HomePage() {
           </Link>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {favorites.map((fav) => (
             <BusCard key={fav.id} stopId={fav.stopId} routeId={fav.routeId ?? null} />
           ))}

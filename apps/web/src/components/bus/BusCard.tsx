@@ -23,14 +23,14 @@ function ArrivalRow({ arrival }: { arrival: StopArrival }) {
   const color = delayColor(arrival.delaySeconds)
 
   return (
-    <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
-      <div className="flex items-center gap-3">
-        <span className="min-w-[2.5rem] rounded bg-accent-cyan/10 px-2 py-0.5 text-center text-sm font-bold text-accent-cyan">
+    <div className="flex items-center justify-between py-2 border-b border-border last:border-0 min-w-0">
+      <div className="flex items-center gap-3 min-w-0 overflow-hidden">
+        <span className="shrink-0 min-w-[2.5rem] rounded bg-accent-cyan/10 px-2 py-0.5 text-center text-sm font-bold text-accent-cyan">
           {arrival.routeShortName}
         </span>
-        <span className="text-sm text-white truncate max-w-[160px]">{arrival.headsign}</span>
+        <span className="text-sm text-white truncate">{arrival.headsign}</span>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         {/* Delay badge */}
         {Math.abs(arrival.delaySeconds) > 30 && (
           <span className={cn('flex items-center gap-1 text-xs', color)}>
@@ -77,7 +77,7 @@ export function BusCard({ stopId, routeId }: BusCardProps) {
   return (
     <Link
       href={mapHref}
-      className="block rounded-xl border border-border bg-card p-4 shadow-md cursor-pointer hover:border-accent-cyan/40 transition-colors"
+      className="block min-w-0 overflow-hidden rounded-xl border border-border bg-card p-4 shadow-md cursor-pointer hover:border-accent-cyan/40 transition-colors"
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-3">
