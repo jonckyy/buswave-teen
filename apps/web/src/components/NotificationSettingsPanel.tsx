@@ -51,28 +51,6 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
     }
 
     try {
-      // Debug: test auth flow before saving
-      try {
-        const { createSupabaseClient } = await import('@/lib/supabase')
-        const sb = createSupabaseClient()
-        const { data: { user } } = await sb.auth.getUser()
-        if (!user) { setSaveError('Debug: not authenticated'); return }
-        const { data: { session } } = await sb.auth.getSession()
-        const token = session?.access_token
-        if (!token) { setSaveError('Debug: no session token'); return }
-        const dbg = await fetch('/api/notifications/debug-auth', {
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        })
-        const dbgData = await dbg.json()
-        console.log('[debug-auth]', dbg.status, dbgData)
-        if (!dbg.ok) {
-          setSaveError(`Auth debug: ${dbg.status} ${JSON.stringify(dbgData)}`)
-          return
-        }
-      } catch (dbgErr) {
-        console.error('[debug-auth] error:', dbgErr)
-      }
-
       await updateSettings({
         timeEnabled,
         timeMinutes,

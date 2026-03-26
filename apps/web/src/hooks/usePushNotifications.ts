@@ -71,19 +71,16 @@ export function usePushNotifications() {
       await existingSub.unsubscribe()
     }
 
-    // Subscribe to push — try ArrayBuffer first, fall back to Uint8Array
+    // Subscribe to push
     let sub: PushSubscription
     try {
       sub = await sw.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: appServerKey.buffer as ArrayBuffer,
+        applicationServerKey: appServerKey,
       })
-    } catch (firstErr) {
-      // Some browsers prefer Uint8Array directly
-      sub = await sw.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: appServerKey as BufferSource,
-      })
+    } catch (pushErr) {
+      const msg = pushErr instanceof Error ? pushErr.message : String(pushErr)
+      throw new Error(`Registration failed - ${msg}`)
     }
 
     const json = sub.toJSON()
