@@ -168,7 +168,8 @@ function StopRow({
       </div>
       <span className="w-6 text-center text-xs font-mono text-muted shrink-0">{stop.stopSequence}</span>
       <span className="flex-1 min-w-0">
-        <span className="block text-sm text-white truncate">{stop.stop_name}</span>
+        <span className={cn('block text-sm truncate', stop.partial ? 'text-muted' : 'text-white')}>{stop.stop_name}</span>
+        {stop.partial && <span className="text-[10px] text-muted/60">pas tous les jours</span>}
       </span>
       {isFav && <Star className="h-3 w-3 text-on-time shrink-0" />}
     </button>

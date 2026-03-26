@@ -54,6 +54,8 @@ export interface GtfsShape {
 /** Stop with its position on a route */
 export interface RouteStop extends GtfsStop {
   stopSequence: number
+  /** true if this stop is not served on all trips (e.g. only on certain days) */
+  partial?: boolean
 }
 
 export interface RouteDirection {

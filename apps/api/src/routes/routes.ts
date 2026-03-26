@@ -132,11 +132,11 @@ routesRouter.get('/route-stops', async (c) => {
     return c.json({ error: 'routeId param required', status: 400 }, 400)
   }
 
-  // One representative trip per direction (check all siblings for coverage)
+  // Fetch trips across all siblings for maximum stop coverage
   const siblingSet = await getRouteSiblings(routeId)
   const { data: trips } = await supabase
     .from('trips')
-    .select('trip_id, direction_id, trip_headsign')
+    .select('trip_id, direction_id, trip_headsign, service_id')
     .in('route_id', [...siblingSet])
     .in('direction_id', [0, 1])
 
@@ -144,51 +144,105 @@ routesRouter.get('/route-stops', async (c) => {
     return c.json({ data: [] } satisfies ApiResponse<RouteDirection[]>)
   }
 
-  // Pick one trip per direction
-  const dirMap = new Map<number, { tripId: string; headsign: string }>()
+  // Pick up to 5 trips per direction with distinct service_ids for max coverage
+  const dirTrips = new Map<number, Array<{ tripId: string; headsign: string }>>()
+  const dirServices = new Map<number, Set<string>>()
   for (const t of trips) {
-    const dir = t.direction_id ?? 0
-    if (!dirMap.has(dir)) {
-      dirMap.set(dir, { tripId: t.trip_id, headsign: t.trip_headsign ?? '' })
+    const dir = (t.direction_id ?? 0) as number
+    if (!dirTrips.has(dir)) { dirTrips.set(dir, []); dirServices.set(dir, new Set()) }
+    const svc = (t as any).service_id as string
+    const arr = dirTrips.get(dir)!
+    const seen = dirServices.get(dir)!
+    if (arr.length < 5 && !seen.has(svc)) {
+      arr.push({ tripId: t.trip_id, headsign: t.trip_headsign ?? '' })
+      seen.add(svc)
     }
   }
 
   const directions: RouteDirection[] = []
 
-  for (const [directionId, { tripId, headsign }] of dirMap.entries()) {
-    // Get stop_times in order for this trip
-    const { data: stopTimes } = await supabase
-      .from('stop_times')
-      .select('stop_id, stop_sequence')
-      .eq('trip_id', tripId)
-      .order('stop_sequence', { ascending: true })
+  for (const [directionId, tripSamples] of dirTrips.entries()) {
+    // Fetch stop_times for all sampled trips in parallel
+    const allStopTimes = await Promise.all(
+      tripSamples.map(({ tripId }) =>
+        supabase
+          .from('stop_times')
+          .select('stop_id, stop_sequence')
+          .eq('trip_id', tripId)
+          .order('stop_sequence', { ascending: true })
+          .then(({ data }) => (data ?? []) as Array<{ stop_id: string; stop_sequence: number }>)
+      )
+    )
 
-    if (!stopTimes?.length) continue
+    // Count how many trips serve each stop, and find the longest trip as base
+    const stopTripCount = new Map<string, number>()
+    let longestIdx = 0
+    for (let i = 0; i < allStopTimes.length; i++) {
+      if (allStopTimes[i].length > allStopTimes[longestIdx].length) longestIdx = i
+      for (const st of allStopTimes[i]) {
+        stopTripCount.set(st.stop_id, (stopTripCount.get(st.stop_id) ?? 0) + 1)
+      }
+    }
+    const totalTrips = allStopTimes.length
 
-    const stopIds = stopTimes.map((s: any) => s.stop_id as string)
+    // Build unified stop list: start from longest trip, insert extras at their sequence
+    const baseStops = allStopTimes[longestIdx]
+    const seenIds = new Set(baseStops.map((s) => s.stop_id))
+    // Collect extra stops from other trips
+    const extras: Array<{ stop_id: string; stop_sequence: number }> = []
+    for (let i = 0; i < allStopTimes.length; i++) {
+      if (i === longestIdx) continue
+      for (const st of allStopTimes[i]) {
+        if (!seenIds.has(st.stop_id)) {
+          extras.push(st)
+          seenIds.add(st.stop_id)
+        }
+      }
+    }
 
+    // Merge extras into base by sequence position
+    const merged = [...baseStops]
+    for (const extra of extras) {
+      // Insert after the last stop with sequence <= extra.stop_sequence
+      let insertIdx = merged.length
+      for (let i = merged.length - 1; i >= 0; i--) {
+        if (merged[i].stop_sequence <= extra.stop_sequence) {
+          insertIdx = i + 1
+          break
+        }
+      }
+      merged.splice(insertIdx, 0, extra)
+    }
+
+    // Fetch stop details
+    const allStopIds = merged.map((s) => s.stop_id)
     const { data: stops } = await supabase
       .from('stops')
       .select('stop_id, stop_name, stop_lat, stop_lon, stop_code')
-      .in('stop_id', stopIds)
+      .in('stop_id', allStopIds)
 
-    // Reorder stops to match sequence and attach stopSequence
     const stopMap = new Map((stops ?? []).map((s: any) => [s.stop_id, s]))
-    const seqMap = new Map(stopTimes.map((s: any) => [s.stop_id as string, s.stop_sequence as number]))
-    const orderedStops = stopIds
-      .map((id) => {
-        const s = stopMap.get(id)
+
+    const orderedStops = merged
+      .map((st) => {
+        const s = stopMap.get(st.stop_id)
         if (!s) return null
-        return { ...s, stopSequence: seqMap.get(id) ?? 0 }
+        const count = stopTripCount.get(st.stop_id) ?? 0
+        return {
+          ...s,
+          stopSequence: st.stop_sequence,
+          ...(count < totalTrips ? { partial: true } : {}),
+        }
       })
       .filter(Boolean)
 
-    // Use last stop name when trip_headsign is empty
-    const resolvedHeadsign = headsign || (orderedStops[orderedStops.length - 1] as any)?.stop_name || ''
+    // Resolve headsign: prefer non-empty, fallback to last stop name
+    const headsign = tripSamples.find((t) => t.headsign)?.headsign
+      || (orderedStops[orderedStops.length - 1] as any)?.stop_name || ''
 
     directions.push({
       directionId: directionId as 0 | 1,
-      headsign: resolvedHeadsign,
+      headsign,
       stops: orderedStops,
     })
   }
