@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { getVehiclePositions } from '../lib/gtfs-rt.js'
 import { supabase } from '../lib/supabase.js'
+import { getRouteSiblings } from '../lib/route-siblings.js'
 import type { VehiclePosition, VehicleDetails, ApiResponse } from '@buswave/shared'
 
 export const vehiclesRouter = new Hono()
@@ -8,13 +9,14 @@ export const vehiclesRouter = new Hono()
 /** GET /api/realtime/vehicles — all vehicles or filtered by ?routeId= */
 vehiclesRouter.get('/', async (c) => {
   const routeId = c.req.query('routeId')
+  const siblingSet = routeId ? await getRouteSiblings(routeId) : null
   const feed = await getVehiclePositions()
 
   const vehicles: VehiclePosition[] = (feed.entity ?? [])
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((e: any) => {
       if (!e.vehicle?.position) return false
-      if (routeId && e.vehicle?.trip?.routeId !== routeId) return false
+      if (siblingSet && !siblingSet.has(e.vehicle?.trip?.routeId)) return false
       return true
     })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

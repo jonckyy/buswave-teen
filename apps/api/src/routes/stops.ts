@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { getTripUpdates } from '../lib/gtfs-rt.js'
 import { supabase } from '../lib/supabase.js'
+import { getRouteSiblings } from '../lib/route-siblings.js'
 import type { StopArrival, ApiResponse, GtfsStop, StopRoute, StopWithHeadsigns } from '@buswave/shared'
 
 export const stopsRouter = new Hono()
@@ -39,6 +40,9 @@ stopsRouter.get('/:stopId/arrivals', async (c) => {
   const stopId = c.req.param('stopId')
   const routeId = c.req.query('routeId')
 
+  // Resolve sibling route_ids (same line, different calendar periods)
+  const siblingSet = routeId ? await getRouteSiblings(routeId) : null
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const feed: any = await getTripUpdates()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -69,7 +73,7 @@ stopsRouter.get('/:stopId/arrivals', async (c) => {
     if (!tu) continue
     // CANCELED trips (scheduleRelationship=3) — skip
     if (tu.trip?.scheduleRelationship === 3) continue
-    if (routeId && tu.trip?.routeId !== routeId) continue
+    if (siblingSet && !siblingSet.has(tu.trip?.routeId)) continue
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const stopTimeUpdates: any[] = tu.stopTimeUpdate ?? []

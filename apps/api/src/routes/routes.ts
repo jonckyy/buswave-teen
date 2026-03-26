@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { getVehiclePositions, getCachedShapeData } from '../lib/gtfs-rt.js'
 import { supabase } from '../lib/supabase.js'
+import { getRouteSiblings } from '../lib/route-siblings.js'
 import type { ApiResponse, GtfsRoute, RouteDirection, RouteWithLiveVehicles, VehiclePosition } from '@buswave/shared'
 
 export const routesRouter = new Hono()
@@ -22,7 +23,14 @@ routesRouter.get('/', async (c) => {
     return c.json({ error: error.message, status: 500 }, 500)
   }
 
-  return c.json({ data: (data ?? []) as GtfsRoute[] } satisfies ApiResponse<GtfsRoute[]>)
+  // Deduplicate route variants (same short_name + long_name = same physical line)
+  const seen = new Map<string, GtfsRoute>()
+  for (const route of (data ?? []) as GtfsRoute[]) {
+    const key = `${route.route_short_name}|${route.route_long_name}`
+    if (!seen.has(key)) seen.set(key, route)
+  }
+
+  return c.json({ data: [...seen.values()] } satisfies ApiResponse<GtfsRoute[]>)
 })
 
 /** GET /api/realtime/routes/names?ids=A,B,C — names for a list of route IDs */
@@ -46,13 +54,15 @@ routesRouter.get('/route-live', async (c) => {
     return c.json({ error: 'routeId param required', status: 400 }, 400)
   }
 
+  const siblingSet = await getRouteSiblings(routeId)
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const feed: any = await getVehiclePositions()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const entities: any[] = feed?.entity ?? []
 
   const vehicles: VehiclePosition[] = entities
-    .filter((e: any) => e.vehicle?.position && e.vehicle?.trip?.routeId === routeId)
+    .filter((e: any) => e.vehicle?.position && siblingSet.has(e.vehicle?.trip?.routeId))
     .map((e: any) => ({
       vehicleId: e.vehicle.vehicle?.id ?? e.id,
       routeId: e.vehicle?.trip?.routeId ?? routeId,
@@ -75,11 +85,11 @@ routesRouter.get('/route-live', async (c) => {
     return c.json({ error: 'Route not found', status: 404 }, 404)
   }
 
-  // Get one trip per direction to fetch both direction shapes
+  // Get one trip per direction to fetch both direction shapes (check all siblings)
   const { data: dirTripRows } = await supabase
     .from('trips')
     .select('shape_id, direction_id')
-    .eq('route_id', routeId)
+    .in('route_id', [...siblingSet])
     .not('shape_id', 'is', null)
     .in('direction_id', [0, 1])
 
@@ -122,11 +132,12 @@ routesRouter.get('/route-stops', async (c) => {
     return c.json({ error: 'routeId param required', status: 400 }, 400)
   }
 
-  // One representative trip per direction
+  // One representative trip per direction (check all siblings for coverage)
+  const siblingSet = await getRouteSiblings(routeId)
   const { data: trips } = await supabase
     .from('trips')
     .select('trip_id, direction_id, trip_headsign')
-    .eq('route_id', routeId)
+    .in('route_id', [...siblingSet])
     .in('direction_id', [0, 1])
 
   if (!trips?.length) {
