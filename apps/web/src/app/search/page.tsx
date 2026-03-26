@@ -178,7 +178,7 @@ function StopRow({
 
 function LineCard({ route, isActive }: { route: GtfsRoute; isActive: boolean }) {
   const [expanded, setExpanded] = useState(false)
-  const [activeDir, setActiveDir] = useState<0 | 1>(0)
+  const [selectedDir, setSelectedDir] = useState<number | null>(null)
 
   const { data: directions = [], isLoading } = useQuery({
     queryKey: ['route-stops', route.route_id],
@@ -190,12 +190,14 @@ function LineCard({ route, isActive }: { route: GtfsRoute; isActive: boolean }) 
   const { data: vehicles = [] } = useQuery({
     queryKey: ['route-vehicles-search', route.route_id],
     queryFn: () => api.vehicles(route.route_id),
-    enabled: expanded,
+    enabled: selectedDir != null,
     refetchInterval: 10_000,
     staleTime: 5_000,
   })
 
-  const currentDir = directions.find((d) => d.directionId === activeDir) ?? directions[0]
+  // Auto-select if only one direction
+  const effectiveDir = directions.length === 1 ? directions[0].directionId : selectedDir
+  const currentDir = directions.find((d) => d.directionId === effectiveDir)
 
   const busesAtStop = useMemo<Map<string, VehiclePosition[]>>(() => {
     const map = new Map<string, VehiclePosition[]>()
@@ -214,7 +216,7 @@ function LineCard({ route, isActive }: { route: GtfsRoute; isActive: boolean }) 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       <button
-        onClick={() => setExpanded((v) => !v)}
+        onClick={() => { setExpanded((v) => !v); if (expanded) setSelectedDir(null) }}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors text-left"
       >
         <div className="flex items-center gap-3">
@@ -241,29 +243,42 @@ function LineCard({ route, isActive }: { route: GtfsRoute; isActive: boolean }) 
             <div className="px-4 py-6 text-center text-muted text-sm">Chargement…</div>
           ) : directions.length === 0 ? (
             <div className="px-4 py-6 text-center text-muted text-sm">Aucun arrêt trouvé</div>
+          ) : currentDir == null ? (
+            /* Direction picker — shown before any stops */
+            <div className="p-3 space-y-2">
+              <p className="text-xs text-muted px-1 mb-1">Choisissez la direction :</p>
+              {directions.map((dir) => (
+                <button
+                  key={dir.directionId}
+                  onClick={() => setSelectedDir(dir.directionId)}
+                  className="w-full flex items-center gap-3 rounded-lg border border-border px-4 py-3 hover:bg-accent-cyan/5 hover:border-accent-cyan/30 transition-colors text-left"
+                >
+                  <ArrowRight className="h-4 w-4 text-accent-cyan shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white truncate">{dir.headsign}</p>
+                    <p className="text-xs text-muted">{dir.stops.length} arrêts</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted shrink-0 ml-auto" />
+                </button>
+              ))}
+            </div>
           ) : (
             <>
+              {/* Back to direction picker + current direction label */}
               {directions.length > 1 && (
-                <div className="flex border-b border-border">
-                  {directions.map((dir) => (
-                    <button
-                      key={dir.directionId}
-                      onClick={() => setActiveDir(dir.directionId)}
-                      className={cn(
-                        'flex-1 px-3 py-2 text-xs font-medium transition-colors',
-                        activeDir === dir.directionId
-                          ? 'text-accent-cyan border-b-2 border-accent-cyan'
-                          : 'text-muted hover:text-white'
-                      )}
-                    >
-                      → {dir.headsign}
-                    </button>
-                  ))}
+                <div className="flex items-center border-b border-border px-3 py-2 gap-2">
+                  <button
+                    onClick={() => setSelectedDir(null)}
+                    className="text-xs text-muted hover:text-accent-cyan transition-colors shrink-0"
+                  >
+                    ← Directions
+                  </button>
+                  <span className="text-xs text-accent-cyan font-medium truncate">→ {currentDir.headsign}</span>
                 </div>
               )}
 
               <div className="max-h-72 overflow-y-auto divide-y divide-border/50">
-                {(currentDir?.stops ?? []).map((stop) => {
+                {currentDir.stops.map((stop) => {
                   const buses = busesAtStop.get(stop.stop_id) ?? []
                   return (
                     <div key={stop.stop_id}>
