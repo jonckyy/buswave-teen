@@ -313,26 +313,21 @@ stopsRouter.get('/search', async (c) => {
   // of each trip (same fallback pattern as the arrivals endpoint).
   const stopIds = data.map((s) => s.stop_id)
 
-  // Step 1: Get a sample of trip_ids per stop
-  // Fetch in batches of 10 stop IDs to ensure adequate coverage per stop
-  const stRows: Array<{ stop_id: string; trip_id: string }> = []
-  const batchSize = 10
-  for (let i = 0; i < stopIds.length; i += batchSize) {
-    const batch = stopIds.slice(i, i + batchSize)
-    const { data: batchRows } = await supabase
-      .from('stop_times')
-      .select('stop_id, trip_id')
-      .in('stop_id', batch)
-      .limit(500)
-    if (batchRows) stRows.push(...(batchRows as Array<{ stop_id: string; trip_id: string }>))
-  }
-
-  // Collect up to 20 unique trip IDs per stop
+  // Step 1: Get a sample of trip_ids per stop (query each stop individually to
+  // guarantee coverage — batched IN queries starve less-popular stops)
   const tripsByStop = new Map<string, Set<string>>()
-  for (const row of stRows) {
-    if (!tripsByStop.has(row.stop_id)) tripsByStop.set(row.stop_id, new Set())
-    const s = tripsByStop.get(row.stop_id)!
-    if (s.size < 20) s.add(row.trip_id)
+  const perStopResults = await Promise.all(
+    stopIds.map((sid) =>
+      supabase
+        .from('stop_times')
+        .select('trip_id')
+        .eq('stop_id', sid)
+        .limit(30)
+        .then(({ data: rows }) => ({ sid, tripIds: (rows ?? []).map((r) => (r as { trip_id: string }).trip_id) }))
+    )
+  )
+  for (const { sid, tripIds: tids } of perStopResults) {
+    if (tids.length > 0) tripsByStop.set(sid, new Set(tids))
   }
 
   const allTripIds = [...new Set([...tripsByStop.values()].flatMap((s) => [...s]))]

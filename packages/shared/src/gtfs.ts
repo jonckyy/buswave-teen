@@ -51,10 +51,15 @@ export interface GtfsShape {
   shape_dist_traveled?: number
 }
 
+/** Stop with its position on a route */
+export interface RouteStop extends GtfsStop {
+  stopSequence: number
+}
+
 export interface RouteDirection {
   directionId: 0 | 1
   headsign: string
-  stops: GtfsStop[]
+  stops: RouteStop[]
 }
 
 export interface GtfsCalendar {

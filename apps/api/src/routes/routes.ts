@@ -161,10 +161,15 @@ routesRouter.get('/route-stops', async (c) => {
       .select('stop_id, stop_name, stop_lat, stop_lon, stop_code')
       .in('stop_id', stopIds)
 
-    // Reorder stops to match sequence
+    // Reorder stops to match sequence and attach stopSequence
     const stopMap = new Map((stops ?? []).map((s: any) => [s.stop_id, s]))
+    const seqMap = new Map(stopTimes.map((s: any) => [s.stop_id as string, s.stop_sequence as number]))
     const orderedStops = stopIds
-      .map((id) => stopMap.get(id))
+      .map((id) => {
+        const s = stopMap.get(id)
+        if (!s) return null
+        return { ...s, stopSequence: seqMap.get(id) ?? 0 }
+      })
       .filter(Boolean)
 
     // Use last stop name when trip_headsign is empty

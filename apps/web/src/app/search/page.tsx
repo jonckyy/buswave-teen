@@ -8,7 +8,7 @@ import { api } from '@/lib/api'
 import { useFavoritesStore } from '@/store/favorites'
 import { useFavoritesActions } from '@/hooks/useFavoritesActions'
 import { cn } from '@/lib/utils'
-import type { GtfsRoute, GtfsStop, StopWithHeadsigns, RouteDirection, StopRoute, VehiclePosition } from '@buswave/shared'
+import type { GtfsRoute, GtfsStop, RouteStop, StopWithHeadsigns, RouteDirection, StopRoute, VehiclePosition } from '@buswave/shared'
 
 // ── Shared components ────────────────────────────────────────────────────
 
@@ -132,7 +132,7 @@ function StopRow({
   routeId,
   routeShortName,
 }: {
-  stop: GtfsStop
+  stop: RouteStop
   routeId: string
   routeShortName: string
 }) {
@@ -166,10 +166,9 @@ function StopRow({
       )}>
         {isFav && <Check className="h-2.5 w-2.5 text-[#0A0E17]" />}
       </div>
-      <MapPin className="h-3.5 w-3.5 text-muted shrink-0" />
+      <span className="w-6 text-center text-xs font-mono text-muted shrink-0">{stop.stopSequence}</span>
       <span className="flex-1 min-w-0">
         <span className="block text-sm text-white truncate">{stop.stop_name}</span>
-        {stop.stop_code && <span className="text-xs text-muted font-mono">#{stop.stop_code}</span>}
       </span>
       {isFav && <Star className="h-3 w-3 text-on-time shrink-0" />}
     </button>
