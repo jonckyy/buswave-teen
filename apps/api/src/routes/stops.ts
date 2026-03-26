@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { getTripUpdates } from '../lib/gtfs-rt.js'
 import { supabase } from '../lib/supabase.js'
-import type { StopArrival, ApiResponse, GtfsStop, StopRoute } from '@buswave/shared'
+import type { StopArrival, ApiResponse, GtfsStop, StopRoute, StopWithHeadsigns } from '@buswave/shared'
 
 export const stopsRouter = new Hono()
 
@@ -291,11 +291,11 @@ stopsRouter.get('/nearby', async (c) => {
   return c.json({ data: (data ?? []) as GtfsStop[] } satisfies ApiResponse<GtfsStop[]>)
 })
 
-/** GET /api/realtime/stops/search?q=XXX — search stops by name */
+/** GET /api/realtime/stops/search?q=XXX — search stops by name, enriched with direction headsigns */
 stopsRouter.get('/search', async (c) => {
   const q = c.req.query('q')?.trim()
   if (!q || q.length < 2) {
-    return c.json({ data: [] } satisfies ApiResponse<GtfsStop[]>)
+    return c.json({ data: [] } satisfies ApiResponse<StopWithHeadsigns[]>)
   }
 
   const { data, error } = await supabase
@@ -304,9 +304,35 @@ stopsRouter.get('/search', async (c) => {
     .ilike('stop_name', `%${q}%`)
     .limit(30)
 
-  if (error) return c.json({ data: [] } satisfies ApiResponse<GtfsStop[]>)
+  if (error || !data || data.length === 0) {
+    return c.json({ data: [] } satisfies ApiResponse<StopWithHeadsigns[]>)
+  }
 
-  return c.json({ data: (data ?? []) as GtfsStop[] } satisfies ApiResponse<GtfsStop[]>)
+  // Batch-fetch distinct headsigns per stop
+  const stopIds = data.map((s) => s.stop_id)
+  const { data: hsRows } = await supabase
+    .from('stop_times')
+    .select('stop_id, trips!inner(trip_headsign)')
+    .in('stop_id', stopIds)
+    .limit(1000)
+
+  // Build headsign map: stopId → unique headsigns (max 4)
+  const hsMap = new Map<string, Set<string>>()
+  for (const row of hsRows ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const headsign = ((row as any).trips?.trip_headsign ?? '') as string
+    if (!headsign) continue
+    const sid = row.stop_id as string
+    if (!hsMap.has(sid)) hsMap.set(sid, new Set())
+    hsMap.get(sid)!.add(headsign)
+  }
+
+  const enriched: StopWithHeadsigns[] = (data as GtfsStop[]).map((s) => ({
+    ...s,
+    headsigns: [...(hsMap.get(s.stop_id) ?? [])].slice(0, 4),
+  }))
+
+  return c.json({ data: enriched } satisfies ApiResponse<StopWithHeadsigns[]>)
 })
 
 /** GET /api/realtime/stops/:stopId/routes — lines serving this stop */

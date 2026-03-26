@@ -12,6 +12,7 @@ import type {
   RouteDirection,
   GtfsRoute,
   GtfsStop,
+  StopWithHeadsigns,
   StopRoute,
   NotificationSettings,
   NotificationSettingsUpsert,
@@ -107,7 +108,7 @@ export const api = {
     apiFetch<RouteDirection[]>(`/api/realtime/routes/route-stops?routeId=${encodeURIComponent(routeId)}`),
 
   searchStops: (q: string) =>
-    apiFetch<GtfsStop[]>(`/api/realtime/stops/search?q=${encodeURIComponent(q)}`),
+    apiFetch<StopWithHeadsigns[]>(`/api/realtime/stops/search?q=${encodeURIComponent(q)}`),
 
   nearbyStops: (lat: number, lon: number, limit = 10) =>
     apiFetch<GtfsStop[]>(`/api/realtime/stops/nearby?lat=${lat}&lon=${lon}&limit=${limit}`),

@@ -8,7 +8,7 @@ import { api } from '@/lib/api'
 import { useFavoritesStore } from '@/store/favorites'
 import { useFavoritesActions } from '@/hooks/useFavoritesActions'
 import { cn } from '@/lib/utils'
-import type { GtfsRoute, GtfsStop, RouteDirection, StopRoute, VehiclePosition } from '@buswave/shared'
+import type { GtfsRoute, GtfsStop, StopWithHeadsigns, RouteDirection, StopRoute, VehiclePosition } from '@buswave/shared'
 
 // ── Shared components ────────────────────────────────────────────────────
 
@@ -300,7 +300,7 @@ function LineCard({ route, isActive }: { route: GtfsRoute; isActive: boolean }) 
 
 // ── Stop search ──────────────────────────────────────────────────────────
 
-function StopSearchResult({ stop, activeRouteIds }: { stop: GtfsStop; activeRouteIds: Set<string> }) {
+function StopSearchResult({ stop, activeRouteIds }: { stop: StopWithHeadsigns; activeRouteIds: Set<string> }) {
   const [expanded, setExpanded] = useState(false)
 
   const { data: routes = [], isLoading } = useQuery({
@@ -320,7 +320,11 @@ function StopSearchResult({ stop, activeRouteIds }: { stop: GtfsStop; activeRout
           <MapPin className="h-4 w-4 text-muted shrink-0" />
           <div className="min-w-0">
             <p className="text-sm font-medium text-white truncate">{stop.stop_name}</p>
-            {stop.stop_code && <p className="text-xs text-muted">Code {stop.stop_code}</p>}
+            {stop.headsigns.length > 0 ? (
+              <p className="text-xs text-muted truncate">→ {stop.headsigns.join(', ')}</p>
+            ) : stop.stop_code ? (
+              <p className="text-xs text-muted">Code {stop.stop_code}</p>
+            ) : null}
           </div>
         </div>
         {expanded

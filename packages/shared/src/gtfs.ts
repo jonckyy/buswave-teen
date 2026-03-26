@@ -20,6 +20,11 @@ export interface GtfsStop {
   parent_station?: string
 }
 
+/** Stop enriched with direction headsigns — used in search results */
+export interface StopWithHeadsigns extends GtfsStop {
+  headsigns: string[]
+}
+
 export interface GtfsTrip {
   trip_id: string
   route_id: string
