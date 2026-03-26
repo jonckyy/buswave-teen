@@ -54,11 +54,14 @@ export function useUser(): AuthUser {
       setUser(u)
       if (u && (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED')) {
         const r = await fetchRole(u.id)
-        if (mounted) setRole(r)
-      } else if (!u) {
-        setRole(null)
+        if (mounted) {
+          setRole(r)
+          setLoading(false)
+        }
+      } else {
+        if (!u) setRole(null)
+        setLoading(false)
       }
-      setLoading(false)
     })
 
     // 2. Then init
