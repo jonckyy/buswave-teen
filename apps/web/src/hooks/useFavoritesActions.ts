@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { createSupabaseClient } from '@/lib/supabase'
 import { useFavoritesStore } from '@/store/favorites'
+import { api } from '@/lib/api'
 import type { FavoriteInsert } from '@buswave/shared'
 
 /**
@@ -48,6 +49,22 @@ export function useFavoritesActions() {
       }
       const { error } = await query
       if (error) console.error('[favorites] delete error:', error.message)
+
+      // If no favorites left, unsubscribe from push notifications
+      const remaining = useFavoritesStore.getState().favorites
+      if (remaining.length === 0) {
+        try {
+          const reg = await navigator.serviceWorker?.getRegistration()
+          const sub = await reg?.pushManager?.getSubscription()
+          if (sub) {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session?.access_token) {
+              await api.unsubscribeFromNotifications(sub.endpoint, session.access_token).catch(() => {})
+            }
+            await sub.unsubscribe()
+          }
+        } catch { /* push cleanup is best-effort */ }
+      }
     }
   }
 
