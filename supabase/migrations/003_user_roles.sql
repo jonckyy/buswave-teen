@@ -43,34 +43,14 @@ CREATE TRIGGER profiles_updated_at
 -- RLS
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- Users can read their own profile
-CREATE POLICY "users_read_own_profile"
+-- Uses get_my_role() (SECURITY DEFINER) to avoid infinite recursion
+CREATE POLICY "profiles_select"
   ON profiles FOR SELECT
-  USING (auth.uid() = id);
+  USING (id = auth.uid() OR get_my_role() = 'admin');
 
--- Admins can read all profiles
-CREATE POLICY "admins_read_all_profiles"
-  ON profiles FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'admin'
-    )
-  );
-
--- Users can update their own profile (but role is protected)
-CREATE POLICY "users_update_own_profile"
+CREATE POLICY "profiles_update"
   ON profiles FOR UPDATE
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
-
--- Admins can update any profile (including role)
-CREATE POLICY "admins_update_any_profile"
-  ON profiles FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.role = 'admin'
-    )
-  );
+  USING (id = auth.uid() OR get_my_role() = 'admin');
 
 -- Helper function: get current user's role (avoids infinite recursion in RLS)
 CREATE OR REPLACE FUNCTION get_my_role()
