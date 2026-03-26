@@ -308,23 +308,70 @@ stopsRouter.get('/search', async (c) => {
     return c.json({ data: [] } satisfies ApiResponse<StopWithHeadsigns[]>)
   }
 
-  // Batch-fetch distinct headsigns per stop
+  // Batch-fetch distinct destination names per stop.
+  // TEC GTFS has mostly empty trip_headsign, so we use the last stop name
+  // of each trip (same fallback pattern as the arrivals endpoint).
   const stopIds = data.map((s) => s.stop_id)
-  const { data: hsRows } = await supabase
-    .from('stop_times')
-    .select('stop_id, trips!inner(trip_headsign)')
-    .in('stop_id', stopIds)
-    .limit(1000)
 
-  // Build headsign map: stopId → unique headsigns (max 4)
-  const hsMap = new Map<string, Set<string>>()
-  for (const row of hsRows ?? []) {
+  // Step 1: Get a sample of trip_ids per stop
+  const { data: stRows } = await supabase
+    .from('stop_times')
+    .select('stop_id, trip_id')
+    .in('stop_id', stopIds)
+    .limit(1500)
+
+  // Collect up to 20 unique trip IDs per stop
+  const tripsByStop = new Map<string, Set<string>>()
+  for (const row of stRows ?? []) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const headsign = ((row as any).trips?.trip_headsign ?? '') as string
-    if (!headsign) continue
-    const sid = row.stop_id as string
-    if (!hsMap.has(sid)) hsMap.set(sid, new Set())
-    hsMap.get(sid)!.add(headsign)
+    const r = row as any
+    if (!tripsByStop.has(r.stop_id)) tripsByStop.set(r.stop_id, new Set())
+    const s = tripsByStop.get(r.stop_id)!
+    if (s.size < 20) s.add(r.trip_id)
+  }
+
+  const allTripIds = [...new Set([...tripsByStop.values()].flatMap((s) => [...s]))]
+  if (allTripIds.length === 0) {
+    const enriched: StopWithHeadsigns[] = (data as GtfsStop[]).map((s) => ({ ...s, headsigns: [] }))
+    return c.json({ data: enriched } satisfies ApiResponse<StopWithHeadsigns[]>)
+  }
+
+  // Step 2: For each trip, find the last stop (max stop_sequence) → terminal stop name
+  const { data: lastStopTimes } = await supabase
+    .from('stop_times')
+    .select('trip_id, stop_id, stop_sequence')
+    .in('trip_id', allTripIds)
+    .order('stop_sequence', { ascending: false })
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tripTerminalMap = new Map<string, string>() // tripId → last stop_id
+  for (const row of lastStopTimes ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = row as any
+    if (!tripTerminalMap.has(r.trip_id)) tripTerminalMap.set(r.trip_id, r.stop_id)
+  }
+
+  // Step 3: Fetch terminal stop names
+  const terminalStopIds = [...new Set(tripTerminalMap.values())]
+  const { data: terminalStops } = await supabase
+    .from('stops')
+    .select('stop_id, stop_name')
+    .in('stop_id', terminalStopIds)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const termNameMap = new Map((terminalStops ?? []).map((s: any) => [s.stop_id, s.stop_name as string]))
+
+  // Step 4: Build headsign map: stopId → unique terminal names (max 4)
+  const hsMap = new Map<string, Set<string>>()
+  for (const [sid, tripIds2] of tripsByStop.entries()) {
+    const names = new Set<string>()
+    for (const tid of tripIds2) {
+      const termStopId = tripTerminalMap.get(tid)
+      if (!termStopId) continue
+      const name = termNameMap.get(termStopId)
+      if (name) names.add(name)
+    }
+    if (names.size > 0) hsMap.set(sid, names)
   }
 
   const enriched: StopWithHeadsigns[] = (data as GtfsStop[]).map((s) => ({
