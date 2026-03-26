@@ -314,20 +314,25 @@ stopsRouter.get('/search', async (c) => {
   const stopIds = data.map((s) => s.stop_id)
 
   // Step 1: Get a sample of trip_ids per stop
-  const { data: stRows } = await supabase
-    .from('stop_times')
-    .select('stop_id, trip_id')
-    .in('stop_id', stopIds)
-    .limit(1500)
+  // Fetch in batches of 10 stop IDs to ensure adequate coverage per stop
+  const stRows: Array<{ stop_id: string; trip_id: string }> = []
+  const batchSize = 10
+  for (let i = 0; i < stopIds.length; i += batchSize) {
+    const batch = stopIds.slice(i, i + batchSize)
+    const { data: batchRows } = await supabase
+      .from('stop_times')
+      .select('stop_id, trip_id')
+      .in('stop_id', batch)
+      .limit(500)
+    if (batchRows) stRows.push(...(batchRows as Array<{ stop_id: string; trip_id: string }>))
+  }
 
   // Collect up to 20 unique trip IDs per stop
   const tripsByStop = new Map<string, Set<string>>()
-  for (const row of stRows ?? []) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = row as any
-    if (!tripsByStop.has(r.stop_id)) tripsByStop.set(r.stop_id, new Set())
-    const s = tripsByStop.get(r.stop_id)!
-    if (s.size < 20) s.add(r.trip_id)
+  for (const row of stRows) {
+    if (!tripsByStop.has(row.stop_id)) tripsByStop.set(row.stop_id, new Set())
+    const s = tripsByStop.get(row.stop_id)!
+    if (s.size < 20) s.add(row.trip_id)
   }
 
   const allTripIds = [...new Set([...tripsByStop.values()].flatMap((s) => [...s]))]
@@ -337,18 +342,24 @@ stopsRouter.get('/search', async (c) => {
   }
 
   // Step 2: For each trip, find the last stop (max stop_sequence) → terminal stop name
-  const { data: lastStopTimes } = await supabase
-    .from('stop_times')
-    .select('trip_id, stop_id, stop_sequence')
-    .in('trip_id', allTripIds)
-    .order('stop_sequence', { ascending: false })
+  // Batch trip IDs to avoid hitting Supabase default row limit (1000)
+  const lastStopTimes: Array<{ trip_id: string; stop_id: string; stop_sequence: number }> = []
+  const tripBatchSize = 50
+  for (let i = 0; i < allTripIds.length; i += tripBatchSize) {
+    const batch = allTripIds.slice(i, i + tripBatchSize)
+    const { data: batchRows } = await supabase
+      .from('stop_times')
+      .select('trip_id, stop_id, stop_sequence')
+      .in('trip_id', batch)
+      .order('stop_sequence', { ascending: false })
+      .limit(5000)
+    if (batchRows) lastStopTimes.push(...(batchRows as Array<{ trip_id: string; stop_id: string; stop_sequence: number }>))
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tripTerminalMap = new Map<string, string>() // tripId → last stop_id
-  for (const row of lastStopTimes ?? []) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = row as any
-    if (!tripTerminalMap.has(r.trip_id)) tripTerminalMap.set(r.trip_id, r.stop_id)
+  for (const row of lastStopTimes) {
+    if (!tripTerminalMap.has(row.trip_id)) tripTerminalMap.set(row.trip_id, row.stop_id)
   }
 
   // Step 3: Fetch terminal stop names
