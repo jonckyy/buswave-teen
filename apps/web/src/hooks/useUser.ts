@@ -29,11 +29,14 @@ export function useUser(): AuthUser {
     let mounted = true
 
     async function fetchRole(userId: string) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', userId)
         .single()
+      if (error) {
+        console.error('[useUser] fetchRole error:', error.message, error.code)
+      }
       return (data?.role as UserRole) ?? 'user'
     }
 
@@ -52,14 +55,14 @@ export function useUser(): AuthUser {
 
       // After init: normal behavior
       setUser(u)
-      if (u && (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED')) {
+      if (u) {
         const r = await fetchRole(u.id)
         if (mounted) {
           setRole(r)
           setLoading(false)
         }
       } else {
-        if (!u) setRole(null)
+        setRole(null)
         setLoading(false)
       }
     })
