@@ -18,6 +18,7 @@ export function NavBar() {
     { href: '/map', label: 'Carte', icon: Map },
     ...(flags.showAlertsPage ? [{ href: '/alerts', label: 'Alertes', icon: AlertTriangle }] : []),
     ...(flags.showLivePage ? [{ href: '/live', label: 'Live', icon: Bus }] : []),
+    ...(isAdmin ? [{ href: '/admin', label: 'Admin', icon: Shield }] : []),
   ]
 
   return (
@@ -39,7 +40,7 @@ export function NavBar() {
                   : 'text-muted hover:text-white'
               )}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className={cn('h-4 w-4', href === '/admin' && 'text-yellow-400')} />
               <span className="hidden sm:inline">{label}</span>
             </Link>
           ))}
@@ -48,11 +49,6 @@ export function NavBar() {
           {!loading && (
             user ? (
               <div className="flex items-center gap-1 ml-1">
-                {isAdmin && (
-                  <Link href="/admin" title="Administration" className="text-yellow-400 hover:text-yellow-300 transition-colors">
-                    <Shield className="h-3.5 w-3.5" />
-                  </Link>
-                )}
                 <Link
                   href="/settings"
                   className="flex items-center gap-1 text-xs text-muted px-2 hover:text-white transition-colors"
