@@ -3,74 +3,182 @@
 import { useState, useMemo, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { Search, ChevronDown, ChevronRight, MapPin, Check, Plus, Star, Bus, ArrowRight } from 'lucide-react'
+import { Search, ChevronDown, ChevronRight, MapPin, Check, Plus, Star, Bus, ArrowRight, Navigation, Loader2 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useFavoritesStore } from '@/store/favorites'
 import { useFavoritesActions } from '@/hooks/useFavoritesActions'
 import { cn } from '@/lib/utils'
 import type { GtfsRoute, GtfsStop, RouteDirection, StopRoute, VehiclePosition } from '@buswave/shared'
 
-// ── Line search with expandable stop picker ───────────────────────────────
+// ── Shared components ────────────────────────────────────────────────────
+
+function LiveDot() {
+  return <span className="inline-block w-2 h-2 rounded-full bg-on-time animate-pulse shrink-0" title="En service" />
+}
+
+// ── Nearby stop row — toggles favorite on click ─────────────────────────
+
+function NearbyStopCard({ stop, activeRouteIds }: { stop: GtfsStop; activeRouteIds: Set<string> }) {
+  const [expanded, setExpanded] = useState(false)
+
+  const { data: routes = [], isLoading } = useQuery({
+    queryKey: ['stop-routes', stop.stop_id],
+    queryFn: () => api.stopRoutes(stop.stop_id),
+    enabled: expanded,
+    staleTime: 60_000,
+  })
+
+  return (
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors text-left"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <MapPin className="h-4 w-4 text-accent-cyan shrink-0" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-white truncate">{stop.stop_name}</p>
+            {stop.stop_code && <p className="text-xs text-muted">Code {stop.stop_code}</p>}
+          </div>
+        </div>
+        {expanded
+          ? <ChevronDown className="h-4 w-4 text-muted shrink-0" />
+          : <ChevronRight className="h-4 w-4 text-muted shrink-0" />
+        }
+      </button>
+
+      {expanded && (
+        <div className="border-t border-border divide-y divide-border/50">
+          {isLoading ? (
+            <div className="px-4 py-4 text-center text-muted text-sm">Chargement…</div>
+          ) : routes.length === 0 ? (
+            <div className="px-4 py-4 text-center text-muted text-sm">Aucune ligne trouvée</div>
+          ) : (
+            routes.map((route) => (
+              <ToggleFavRow
+                key={`${route.route_id}:${route.direction_id}`}
+                stop={stop}
+                routeId={route.route_id}
+                routeShortName={route.route_short_name}
+                routeLongName={route.route_long_name || route.headsign}
+                isActive={activeRouteIds.has(route.route_id)}
+              />
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** A row that toggles favorite on/off instantly when clicked */
+function ToggleFavRow({
+  stop,
+  routeId,
+  routeShortName,
+  routeLongName,
+  isActive,
+}: {
+  stop: GtfsStop
+  routeId: string
+  routeShortName: string
+  routeLongName: string
+  isActive: boolean
+}) {
+  const { addFavorite, removeFavorite } = useFavoritesActions()
+  const isFav = useFavoritesStore((s) => s.isFavorite(stop.stop_id, routeId))
+
+  function handleToggle() {
+    if (isFav) {
+      removeFavorite(stop.stop_id, routeId)
+    } else {
+      addFavorite({
+        stopId: stop.stop_id,
+        routeId,
+        userId: null,
+        label: `${routeShortName} · ${stop.stop_name}`,
+      })
+    }
+  }
+
+  return (
+    <button
+      onClick={handleToggle}
+      className={cn(
+        'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
+        isFav ? 'bg-on-time/5' : 'hover:bg-white/5'
+      )}
+    >
+      <div className={cn(
+        'w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-colors',
+        isFav ? 'border-on-time bg-on-time' : 'border-border'
+      )}>
+        {isFav && <Check className="h-2.5 w-2.5 text-[#0A0E17]" />}
+      </div>
+      <span className="min-w-[2.5rem] rounded bg-accent-cyan/10 px-2 py-0.5 text-center text-xs font-bold text-accent-cyan shrink-0">
+        {routeShortName}
+      </span>
+      {isActive && <LiveDot />}
+      <span className="text-sm text-white truncate flex-1 min-w-0">{routeLongName}</span>
+      {isFav && <Star className="h-3 w-3 text-on-time shrink-0" />}
+    </button>
+  )
+}
+
+// ── Line search with expandable stop picker ─────────────────────────────
 
 function StopRow({
   stop,
   routeId,
   routeShortName,
-  selected,
-  onToggle,
 }: {
   stop: GtfsStop
   routeId: string
   routeShortName: string
-  selected: boolean
-  onToggle: () => void
 }) {
+  const { addFavorite, removeFavorite } = useFavoritesActions()
   const isFav = useFavoritesStore((s) => s.isFavorite(stop.stop_id, routeId))
+
+  function handleToggle() {
+    if (isFav) {
+      removeFavorite(stop.stop_id, routeId)
+    } else {
+      addFavorite({
+        stopId: stop.stop_id,
+        routeId,
+        userId: null,
+        label: `${routeShortName} · ${stop.stop_name}`,
+      })
+    }
+  }
+
   return (
     <button
-      onClick={onToggle}
-      disabled={isFav}
+      onClick={handleToggle}
       className={cn(
         'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
-        isFav
-          ? 'opacity-50 cursor-default'
-          : selected
-          ? 'bg-accent-cyan/10'
-          : 'hover:bg-white/5'
+        isFav ? 'bg-on-time/5' : 'hover:bg-white/5'
       )}
     >
       <div className={cn(
         'w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-colors',
-        isFav
-          ? 'border-on-time bg-on-time/20'
-          : selected
-          ? 'border-accent-cyan bg-accent-cyan'
-          : 'border-border'
+        isFav ? 'border-on-time bg-on-time' : 'border-border'
       )}>
-        {isFav
-          ? <Star className="h-2.5 w-2.5 text-on-time" />
-          : selected && <Check className="h-2.5 w-2.5 text-[#0A0E17]" />
-        }
+        {isFav && <Check className="h-2.5 w-2.5 text-[#0A0E17]" />}
       </div>
       <MapPin className="h-3.5 w-3.5 text-muted shrink-0" />
       <span className="flex-1 min-w-0">
         <span className="block text-sm text-white truncate">{stop.stop_name}</span>
         {stop.stop_code && <span className="text-xs text-muted font-mono">#{stop.stop_code}</span>}
       </span>
-      {isFav && <span className="text-xs text-on-time ml-auto shrink-0">Déjà favori</span>}
+      {isFav && <Star className="h-3 w-3 text-on-time shrink-0" />}
     </button>
   )
-}
-
-function LiveDot() {
-  return <span className="inline-block w-2 h-2 rounded-full bg-on-time animate-pulse shrink-0" title="En service" />
 }
 
 function LineCard({ route, isActive }: { route: GtfsRoute; isActive: boolean }) {
   const [expanded, setExpanded] = useState(false)
   const [activeDir, setActiveDir] = useState<0 | 1>(0)
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const { addFavorite } = useFavoritesActions()
 
   const { data: directions = [], isLoading } = useQuery({
     queryKey: ['route-stops', route.route_id],
@@ -89,7 +197,6 @@ function LineCard({ route, isActive }: { route: GtfsRoute; isActive: boolean }) 
 
   const currentDir = directions.find((d) => d.directionId === activeDir) ?? directions[0]
 
-  // Map stopId → buses currently heading to that stop, filtered to current direction
   const busesAtStop = useMemo<Map<string, VehiclePosition[]>>(() => {
     const map = new Map<string, VehiclePosition[]>()
     if (!currentDir) return map
@@ -104,33 +211,10 @@ function LineCard({ route, isActive }: { route: GtfsRoute; isActive: boolean }) 
     return map
   }, [vehicles, currentDir])
 
-  function toggleStop(stopId: string) {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      next.has(stopId) ? next.delete(stopId) : next.add(stopId)
-      return next
-    })
-  }
-
-  function addSelected() {
-    if (!currentDir) return
-    const stops = currentDir.stops.filter((s) => selected.has(s.stop_id))
-    for (const stop of stops) {
-      addFavorite({
-        stopId: stop.stop_id,
-        routeId: route.route_id,
-        userId: null,
-        label: `${route.route_short_name} · ${stop.stop_name}`,
-      })
-    }
-    setSelected(new Set())
-  }
-
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
-      {/* Line header — click to expand */}
       <button
-        onClick={() => { setExpanded((v) => !v); setSelected(new Set()) }}
+        onClick={() => setExpanded((v) => !v)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors text-left"
       >
         <div className="flex items-center gap-3">
@@ -151,7 +235,6 @@ function LineCard({ route, isActive }: { route: GtfsRoute; isActive: boolean }) 
         </div>
       </button>
 
-      {/* Expanded stops */}
       {expanded && (
         <div className="border-t border-border">
           {isLoading ? (
@@ -160,13 +243,12 @@ function LineCard({ route, isActive }: { route: GtfsRoute; isActive: boolean }) 
             <div className="px-4 py-6 text-center text-muted text-sm">Aucun arrêt trouvé</div>
           ) : (
             <>
-              {/* Direction tabs */}
               {directions.length > 1 && (
                 <div className="flex border-b border-border">
                   {directions.map((dir) => (
                     <button
                       key={dir.directionId}
-                      onClick={() => { setActiveDir(dir.directionId); setSelected(new Set()) }}
+                      onClick={() => setActiveDir(dir.directionId)}
                       className={cn(
                         'flex-1 px-3 py-2 text-xs font-medium transition-colors',
                         activeDir === dir.directionId
@@ -180,13 +262,11 @@ function LineCard({ route, isActive }: { route: GtfsRoute; isActive: boolean }) 
                 </div>
               )}
 
-              {/* Stop list — max height with scroll */}
               <div className="max-h-72 overflow-y-auto divide-y divide-border/50">
                 {(currentDir?.stops ?? []).map((stop) => {
                   const buses = busesAtStop.get(stop.stop_id) ?? []
                   return (
                     <div key={stop.stop_id}>
-                      {/* Bus indicators for buses heading to this stop */}
                       {buses.map((v) => (
                         <div
                           key={v.vehicleId}
@@ -205,26 +285,11 @@ function LineCard({ route, isActive }: { route: GtfsRoute; isActive: boolean }) 
                         stop={stop}
                         routeId={route.route_id}
                         routeShortName={route.route_short_name}
-                        selected={selected.has(stop.stop_id)}
-                        onToggle={() => toggleStop(stop.stop_id)}
                       />
                     </div>
                   )
                 })}
               </div>
-
-              {/* Add selected button */}
-              {selected.size > 0 && (
-                <div className="p-3 border-t border-border">
-                  <button
-                    onClick={addSelected}
-                    className="w-full flex items-center justify-center gap-2 rounded-lg bg-accent-cyan/10 py-2.5 text-sm font-medium text-accent-cyan hover:bg-accent-cyan/20 transition-colors"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Ajouter {selected.size} arrêt{selected.size > 1 ? 's' : ''} aux favoris
-                  </button>
-                </div>
-              )}
             </>
           )}
         </div>
@@ -233,46 +298,7 @@ function LineCard({ route, isActive }: { route: GtfsRoute; isActive: boolean }) 
   )
 }
 
-// ── Stop search ───────────────────────────────────────────────────────────
-
-function StopRouteRow({ stop, route, isActive }: { stop: GtfsStop; route: StopRoute; isActive: boolean }) {
-  const { addFavorite } = useFavoritesActions()
-  const isFav = useFavoritesStore((s) => s.isFavorite(stop.stop_id, route.route_id))
-
-  return (
-    <div className={cn(
-      'flex items-center justify-between px-4 py-2.5 gap-3',
-      isFav ? 'opacity-60' : 'hover:bg-white/5'
-    )}>
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="min-w-[2.5rem] rounded bg-accent-cyan/10 px-2 py-0.5 text-center text-xs font-bold text-accent-cyan shrink-0">
-          {route.route_short_name}
-        </span>
-        {isActive && <LiveDot />}
-        <span className="text-sm text-white truncate">{route.route_long_name || route.headsign}</span>
-      </div>
-      <button
-        onClick={() =>
-          addFavorite({
-            stopId: stop.stop_id,
-            routeId: route.route_id,
-            userId: null,
-            label: `${route.route_short_name} · ${stop.stop_name}`,
-          })
-        }
-        disabled={isFav}
-        className={cn(
-          'flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors shrink-0',
-          isFav
-            ? 'bg-on-time/10 text-on-time cursor-default'
-            : 'bg-accent-cyan/10 text-accent-cyan hover:bg-accent-cyan/20'
-        )}
-      >
-        {isFav ? <><Check className="h-3 w-3" /> Ajouté</> : <><Plus className="h-3 w-3" /> Favori</>}
-      </button>
-    </div>
-  )
-}
+// ── Stop search ──────────────────────────────────────────────────────────
 
 function StopSearchResult({ stop, activeRouteIds }: { stop: GtfsStop; activeRouteIds: Set<string> }) {
   const [expanded, setExpanded] = useState(false)
@@ -286,7 +312,6 @@ function StopSearchResult({ stop, activeRouteIds }: { stop: GtfsStop; activeRout
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
-      {/* Stop header — click to expand */}
       <button
         onClick={() => setExpanded((v) => !v)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors text-left"
@@ -304,7 +329,6 @@ function StopSearchResult({ stop, activeRouteIds }: { stop: GtfsStop; activeRout
         }
       </button>
 
-      {/* Expanded: list of lines serving this stop */}
       {expanded && (
         <div className="border-t border-border divide-y divide-border/50">
           {isLoading ? (
@@ -313,7 +337,14 @@ function StopSearchResult({ stop, activeRouteIds }: { stop: GtfsStop; activeRout
             <div className="px-4 py-4 text-center text-muted text-sm">Aucune ligne trouvée</div>
           ) : (
             routes.map((route) => (
-              <StopRouteRow key={`${route.route_id}:${route.direction_id}`} stop={stop} route={route} isActive={activeRouteIds.has(route.route_id)} />
+              <ToggleFavRow
+                key={`${route.route_id}:${route.direction_id}`}
+                stop={stop}
+                routeId={route.route_id}
+                routeShortName={route.route_short_name}
+                routeLongName={route.route_long_name || route.headsign}
+                isActive={activeRouteIds.has(route.route_id)}
+              />
             ))
           )}
         </div>
@@ -322,12 +353,89 @@ function StopSearchResult({ stop, activeRouteIds }: { stop: GtfsStop; activeRout
   )
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────
+// ── Nearby tab content ───────────────────────────────────────────────────
 
-type Mode = 'ligne' | 'arret'
+function NearbyTab({ activeRouteIds }: { activeRouteIds: Set<string> }) {
+  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null)
+  const [geoError, setGeoError] = useState<string | null>(null)
+  const [requesting, setRequesting] = useState(true)
 
-// Module-level cache — survives client-side navigation, reset on full page reload
-let _cachedMode: Mode = 'ligne'
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setGeoError('Géolocalisation non supportée par ce navigateur.')
+      setRequesting(false)
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude })
+        setRequesting(false)
+      },
+      (err) => {
+        setGeoError(
+          err.code === 1
+            ? 'Accès à la localisation refusé. Autorisez-la dans les paramètres.'
+            : 'Impossible de déterminer votre position.'
+        )
+        setRequesting(false)
+      },
+      { enableHighAccuracy: true, timeout: 10_000 }
+    )
+  }, [])
+
+  const { data: stops = [], isLoading } = useQuery({
+    queryKey: ['nearby-stops', coords?.lat, coords?.lon],
+    queryFn: () => api.nearbyStops(coords!.lat, coords!.lon, 10),
+    enabled: !!coords,
+    staleTime: 30_000,
+  })
+
+  if (requesting) {
+    return (
+      <div className="flex flex-col items-center py-12 gap-3">
+        <Loader2 className="h-6 w-6 animate-spin text-accent-cyan" />
+        <p className="text-sm text-muted">Localisation en cours…</p>
+      </div>
+    )
+  }
+
+  if (geoError) {
+    return (
+      <div className="flex flex-col items-center py-12 gap-2">
+        <Navigation className="h-6 w-6 text-muted" />
+        <p className="text-sm text-muted text-center">{geoError}</p>
+      </div>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="h-14 rounded-xl bg-card animate-pulse" />
+        ))}
+      </div>
+    )
+  }
+
+  if (stops.length === 0) {
+    return <p className="text-muted text-center py-8">Aucun arrêt trouvé à proximité</p>
+  }
+
+  return (
+    <div className="space-y-2">
+      {stops.map((stop) => (
+        <NearbyStopCard key={stop.stop_id} stop={stop} activeRouteIds={activeRouteIds} />
+      ))}
+    </div>
+  )
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────
+
+type Mode = 'nearby' | 'ligne' | 'arret'
+
+let _cachedMode: Mode = 'nearby'
 let _cachedQuery = ''
 
 export default function SearchPage() {
@@ -342,17 +450,15 @@ function SearchPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // URL params take priority (shared link / browser back), else use in-memory cache
   const [mode, setMode] = useState<Mode>((searchParams.get('mode') as Mode) ?? _cachedMode)
   const [query, setQuery] = useState(searchParams.get('q') ?? _cachedQuery)
 
-  // Keep cache + URL in sync
   useEffect(() => {
     _cachedMode = mode
     _cachedQuery = query
     const params = new URLSearchParams()
-    if (mode !== 'ligne') params.set('mode', mode)
-    if (query) params.set('q', query)
+    if (mode !== 'nearby') params.set('mode', mode)
+    if (query && mode !== 'nearby') params.set('q', query)
     const search = params.toString()
     router.replace(search ? `/search?${search}` : '/search', { scroll: false })
   }, [mode, query, router])
@@ -376,7 +482,6 @@ function SearchPageInner() {
     queryFn: () => api.allVehicles(),
     refetchInterval: 30_000,
     staleTime: 20_000,
-    enabled: query.length >= 2,
   })
 
   const activeRouteIds = useMemo(
@@ -393,37 +498,45 @@ function SearchPageInner() {
 
       {/* Mode tabs */}
       <div className="flex rounded-xl border border-border bg-card p-1 mb-4">
-        {(['ligne', 'arret'] as Mode[]).map((m) => (
+        {([
+          { key: 'nearby' as Mode, label: 'Proches' },
+          { key: 'ligne' as Mode, label: 'Lignes' },
+          { key: 'arret' as Mode, label: 'Arrêts' },
+        ]).map(({ key, label }) => (
           <button
-            key={m}
-            onClick={() => { setMode(m); setQuery(mode === m ? query : '') }}
+            key={key}
+            onClick={() => { setMode(key); if (key === 'nearby') setQuery('') }}
             className={cn(
               'flex-1 rounded-lg py-2 text-sm font-medium transition-colors',
-              mode === m
+              mode === key
                 ? 'bg-accent-cyan/10 text-accent-cyan'
                 : 'text-muted hover:text-white'
             )}
           >
-            {m === 'ligne' ? 'Par ligne' : 'Par arrêt'}
+            {label}
           </button>
         ))}
       </div>
 
-      {/* Search input */}
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={placeholder}
-          className="w-full rounded-xl border border-border bg-card py-3 pl-10 pr-4 text-white placeholder:text-muted focus:border-accent-cyan focus:outline-none"
-          autoFocus
-        />
-      </div>
+      {/* Search input — only for ligne and arret modes */}
+      {mode !== 'nearby' && (
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={placeholder}
+            className="w-full rounded-xl border border-border bg-card py-3 pl-10 pr-4 text-white placeholder:text-muted focus:border-accent-cyan focus:outline-none"
+            autoFocus
+          />
+        </div>
+      )}
 
       {/* Results */}
-      {query.length >= 2 ? (
+      {mode === 'nearby' ? (
+        <NearbyTab activeRouteIds={activeRouteIds} />
+      ) : query.length >= 2 ? (
         <div className="space-y-2">
           {isLoading
             ? Array.from({ length: 3 }).map((_, i) => (

@@ -108,6 +108,9 @@ export const api = {
   searchStops: (q: string) =>
     apiFetch<GtfsStop[]>(`/api/realtime/stops/search?q=${encodeURIComponent(q)}`),
 
+  nearbyStops: (lat: number, lon: number, limit = 10) =>
+    apiFetch<GtfsStop[]>(`/api/realtime/stops/nearby?lat=${lat}&lon=${lon}&limit=${limit}`),
+
   stopRoutes: (stopId: string) =>
     apiFetch<StopRoute[]>(`/api/realtime/stops/${encodeURIComponent(stopId)}/routes`),
 

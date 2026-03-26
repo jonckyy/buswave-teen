@@ -251,6 +251,46 @@ stopsRouter.get('/:stopId/arrivals', async (c) => {
   return c.json({ data: arrivals } satisfies ApiResponse<StopArrival[]>)
 })
 
+/** GET /api/realtime/stops/nearby?lat=X&lon=Y&limit=N — nearest stops by distance */
+stopsRouter.get('/nearby', async (c) => {
+  const lat = parseFloat(c.req.query('lat') ?? '')
+  const lon = parseFloat(c.req.query('lon') ?? '')
+  const limit = Math.min(parseInt(c.req.query('limit') ?? '10', 10), 30)
+
+  if (isNaN(lat) || isNaN(lon)) {
+    return c.json({ data: [] } satisfies ApiResponse<GtfsStop[]>)
+  }
+
+  // Approximate distance using Euclidean on lat/lon (good enough for nearby stops in Belgium)
+  // 1 degree lat ≈ 111km, 1 degree lon ≈ 67km at 50°N
+  const { data, error } = await supabase
+    .rpc('nearby_stops', { user_lat: lat, user_lon: lon, max_results: limit })
+
+  if (error) {
+    // Fallback: simple query sorted by rough distance
+    const { data: fallback } = await supabase
+      .from('stops')
+      .select('stop_id, stop_name, stop_lat, stop_lon, stop_code')
+      .not('stop_lat', 'is', null)
+      .not('stop_lon', 'is', null)
+      .limit(200)
+
+    if (!fallback) return c.json({ data: [] } satisfies ApiResponse<GtfsStop[]>)
+
+    const sorted = fallback
+      .map((s) => ({
+        ...s,
+        dist: Math.pow((s.stop_lat - lat) * 111, 2) + Math.pow((s.stop_lon - lon) * 67, 2),
+      }))
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, limit)
+
+    return c.json({ data: sorted as GtfsStop[] } satisfies ApiResponse<GtfsStop[]>)
+  }
+
+  return c.json({ data: (data ?? []) as GtfsStop[] } satisfies ApiResponse<GtfsStop[]>)
+})
+
 /** GET /api/realtime/stops/search?q=XXX — search stops by name */
 stopsRouter.get('/search', async (c) => {
   const q = c.req.query('q')?.trim()
