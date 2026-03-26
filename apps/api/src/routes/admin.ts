@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/requireAdmin.js'
 import { supabase } from '../lib/supabase.js'
-import type { ApiResponse, RoleConfig, AdminUserRow, UserRole } from '@buswave/shared'
+import type { ApiResponse, RoleConfig, AdminUserRow, AdminUserDetail, AdminUserFavorite, AdminPushSubscription, AdminNotificationLog, UserRole } from '@buswave/shared'
 
 export const adminRouter = new Hono()
 
@@ -122,6 +122,174 @@ adminRouter.get('/users', requireAdmin, async (c) => {
   }))
 
   return c.json({ data: users } satisfies ApiResponse<AdminUserRow[]>)
+})
+
+/** Parse browser name from user-agent string */
+function parseBrowser(ua: string | null): string {
+  if (!ua) return 'Inconnu'
+  if (ua.includes('Firefox/')) return 'Firefox'
+  if (ua.includes('Edg/')) return 'Edge'
+  if (ua.includes('OPR/') || ua.includes('Opera/')) return 'Opera'
+  if (ua.includes('Chrome/') && !ua.includes('Edg/')) return 'Chrome'
+  if (ua.includes('Safari/') && !ua.includes('Chrome/')) return 'Safari'
+  return 'Autre'
+}
+
+/** GET /users/:userId/details — admin only, detailed user info for debugging */
+adminRouter.get('/users/:userId/details', requireAdmin, async (c) => {
+  const userId = c.req.param('userId')
+
+  // Fetch profile, favorites, subscriptions, notification log in parallel
+  const [profileRes, favsRes, subsRes, logsRes] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', userId).single(),
+    supabase
+      .from('favorites')
+      .select('id, stop_id, route_id, label, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('push_subscriptions')
+      .select('id, endpoint, user_agent, created_at, last_used')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('notification_log')
+      .select('id, favorite_id, trigger_type, trip_id, sent_at')
+      .eq('user_id', userId)
+      .order('sent_at', { ascending: false })
+      .limit(50),
+  ])
+
+  if (profileRes.error || !profileRes.data) {
+    return c.json({ error: 'User not found' }, 404)
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const profile = profileRes.data as any
+
+  // Collect stop/route IDs for name lookups
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const favs = (favsRes.data ?? []) as any[]
+  const stopIds = [...new Set(favs.map((f) => f.stop_id as string))]
+  const routeIds = [...new Set(favs.map((f) => f.route_id as string).filter(Boolean))]
+  const favIds = favs.map((f) => f.id as string)
+
+  // Also collect stop/route IDs from notification logs via favorites
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const logs = (logsRes.data ?? []) as any[]
+  const logFavIds = [...new Set(logs.map((l) => l.favorite_id as string))]
+  const allFavIds = [...new Set([...favIds, ...logFavIds])]
+
+  // Batch fetch related data
+  const [stopsRes, routesRes, settingsRes, logFavsRes] = await Promise.all([
+    stopIds.length > 0
+      ? supabase.from('stops').select('stop_id, stop_name').in('stop_id', stopIds)
+      : { data: [] },
+    routeIds.length > 0
+      ? supabase.from('routes').select('route_id, route_short_name').in('route_id', routeIds)
+      : { data: [] },
+    favIds.length > 0
+      ? supabase.from('notification_settings').select('*').in('favorite_id', favIds)
+      : { data: [] },
+    // Get favorites referenced by logs that the user may have deleted
+    logFavIds.length > 0
+      ? supabase.from('favorites').select('id, stop_id, route_id').in('id', logFavIds)
+      : { data: [] },
+  ])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const stopNameMap = new Map((stopsRes.data ?? []).map((s: any) => [s.stop_id, s.stop_name]))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const routeNameMap = new Map((routesRes.data ?? []).map((r: any) => [r.route_id, r.route_short_name]))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const settingsMap = new Map((settingsRes.data ?? []).map((s: any) => [s.favorite_id, s]))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const logFavMap = new Map((logFavsRes.data ?? []).map((f: any) => [f.id, f]))
+
+  // Fetch extra stop/route names for log favorites not in current favorites
+  const extraStopIds = [...new Set(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (logFavsRes.data ?? []).filter((f: any) => !stopNameMap.has(f.stop_id)).map((f: any) => f.stop_id as string)
+  )]
+  const extraRouteIds = [...new Set(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (logFavsRes.data ?? []).filter((f: any) => f.route_id && !routeNameMap.has(f.route_id)).map((f: any) => f.route_id as string)
+  )]
+
+  if (extraStopIds.length > 0) {
+    const { data } = await supabase.from('stops').select('stop_id, stop_name').in('stop_id', extraStopIds)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const s of (data ?? []) as any[]) stopNameMap.set(s.stop_id, s.stop_name)
+  }
+  if (extraRouteIds.length > 0) {
+    const { data } = await supabase.from('routes').select('route_id, route_short_name').in('route_id', extraRouteIds)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const r of (data ?? []) as any[]) routeNameMap.set(r.route_id, r.route_short_name)
+  }
+
+  // Build favorites
+  const favorites: AdminUserFavorite[] = favs.map((f) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ns = settingsMap.get(f.id) as any
+    return {
+      id: f.id,
+      stopId: f.stop_id,
+      stopName: stopNameMap.get(f.stop_id) ?? f.stop_id,
+      routeId: f.route_id,
+      routeShortName: f.route_id ? (routeNameMap.get(f.route_id) ?? f.route_id) : null,
+      label: f.label,
+      createdAt: f.created_at,
+      notifications: ns ? {
+        timeEnabled: ns.time_enabled,
+        timeMinutes: ns.time_minutes,
+        distanceEnabled: ns.distance_enabled,
+        distanceMeters: ns.distance_meters,
+        offrouteEnabled: ns.offroute_enabled,
+        offrouteMeters: ns.offroute_meters,
+      } : null,
+    }
+  })
+
+  // Build push subscriptions
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const subs = (subsRes.data ?? []) as any[]
+  const pushSubscriptions: AdminPushSubscription[] = subs.map((s) => ({
+    id: s.id,
+    endpoint: s.endpoint,
+    userAgent: s.user_agent,
+    browser: parseBrowser(s.user_agent),
+    createdAt: s.created_at,
+    lastUsed: s.last_used,
+  }))
+
+  // Build notification log
+  const recentNotifications: AdminNotificationLog[] = logs.map((l) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fav = logFavMap.get(l.favorite_id) as any
+    return {
+      id: l.id,
+      favoriteId: l.favorite_id,
+      triggerType: l.trigger_type,
+      tripId: l.trip_id,
+      sentAt: l.sent_at,
+      stopName: fav ? (stopNameMap.get(fav.stop_id) ?? null) : null,
+      routeShortName: fav?.route_id ? (routeNameMap.get(fav.route_id) ?? null) : null,
+    }
+  })
+
+  const detail: AdminUserDetail = {
+    id: profile.id,
+    email: profile.email,
+    role: profile.role ?? 'user',
+    createdAt: profile.created_at,
+    quietStart: profile.quiet_start ?? '22:00',
+    quietEnd: profile.quiet_end ?? '07:00',
+    favorites,
+    pushSubscriptions,
+    recentNotifications,
+  }
+
+  return c.json({ data: detail } satisfies ApiResponse<AdminUserDetail>)
 })
 
 /** PUT /users/:userId/role — admin only, change a user's role */

@@ -19,6 +19,7 @@ import type {
   RoleConfig,
   RoleConfigUpdate,
   AdminUserRow,
+  AdminUserDetail,
 } from '@buswave/shared'
 
 const BASE = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001'
@@ -165,6 +166,9 @@ export const api = {
 
   getAdminUsers: (token: string) =>
     authFetch<AdminUserRow[]>('/api/admin/users', { method: 'GET', token }),
+
+  getAdminUserDetails: (userId: string, token: string) =>
+    authFetch<AdminUserDetail>(`/api/admin/users/${encodeURIComponent(userId)}/details`, { method: 'GET', token }),
 
   updateRoleConfig: (role: string, update: RoleConfigUpdate, token: string) =>
     authFetch<{ ok: true }>(`/api/admin/role-config/${encodeURIComponent(role)}`, {

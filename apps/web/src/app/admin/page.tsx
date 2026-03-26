@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Users, Settings, Shield, Loader2, Save, Check } from 'lucide-react'
+import { ArrowLeft, Users, Settings, Shield, Loader2, Save, Check, ChevronDown, ChevronUp, Bell, Star, Smartphone, Clock } from 'lucide-react'
 import Link from 'next/link'
 import { api } from '@/lib/api'
 import { useUser } from '@/hooks/useUser'
 import { createSupabaseClient } from '@/lib/supabase'
 import { ROLE_LABELS } from '@buswave/shared'
-import type { RoleConfig, RoleConfigUpdate, AdminUserRow, UserRole } from '@buswave/shared'
+import type { RoleConfig, RoleConfigUpdate, AdminUserRow, AdminUserDetail, UserRole } from '@buswave/shared'
 
 export default function AdminPage() {
   const { user, isAdmin, loading: authLoading } = useUser()
@@ -47,10 +47,11 @@ export default function AdminPage() {
   )
 }
 
-/** Section 1: Users table with role management */
+/** Section 1: Users table with role management + expandable detail */
 function UsersSection() {
   const supabase = useMemo(() => createSupabaseClient(), [])
   const queryClient = useQueryClient()
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
 
   const getToken = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -98,58 +99,296 @@ function UsersSection() {
           <Loader2 className="h-6 w-6 animate-spin text-[#8892B0]" />
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/10 text-left text-xs text-[#8892B0]">
-                <th className="pb-2 pr-4">Email</th>
-                <th className="pb-2 pr-4" title="Medium = accès étendu, Standard = accès basique">Role</th>
-                <th className="pb-2 pr-4 text-center" title="Nombre d'arrêts enregistrés en favoris">Favoris</th>
-                <th className="pb-2 pr-4 text-center" title="Nombre d'appareils abonnés aux notifications push">Push</th>
-                <th className="pb-2 pr-4 text-center" title="Nombre total de notifications push reçues">Notifs</th>
-                <th className="pb-2" title="Date d'inscription">Inscrit</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className="border-b border-white/5">
-                  <td className="py-2.5 pr-4 text-white truncate max-w-[200px]">{u.email}</td>
-                  <td className="py-2.5 pr-4">
-                    {u.role === 'admin' ? (
-                      <span className="inline-flex items-center gap-1 text-yellow-400 text-xs font-medium">
-                        <Shield className="h-3 w-3" />
-                        {ROLE_LABELS.admin}
-                      </span>
-                    ) : (
-                      <div className="relative">
-                        <select
-                          value={u.role}
-                          onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                          disabled={updatingId === u.id}
-                          className="appearance-none bg-[#0A0E17] border border-white/10 rounded px-2 py-1 text-xs text-white cursor-pointer disabled:opacity-50"
-                        >
-                          <option value="editor">{ROLE_LABELS.editor}</option>
-                          <option value="user">{ROLE_LABELS.user}</option>
-                        </select>
-                        {updatingId === u.id && (
-                          <Loader2 className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-[#00D4FF]" />
-                        )}
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-2.5 pr-4 text-center text-[#8892B0]">{u.favoritesCount}</td>
-                  <td className="py-2.5 pr-4 text-center text-[#8892B0]">{u.pushSubscriptionsCount}</td>
-                  <td className="py-2.5 pr-4 text-center text-[#8892B0]">{u.notificationsReceivedCount}</td>
-                  <td className="py-2.5 text-[#8892B0] text-xs">
-                    {new Date(u.createdAt).toLocaleDateString('fr-BE')}
-                  </td>
+        <div className="space-y-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/10 text-left text-xs text-[#8892B0]">
+                  <th className="pb-2 pr-4">Email</th>
+                  <th className="pb-2 pr-4" title="Medium = acces etendu, Standard = acces basique">Role</th>
+                  <th className="pb-2 pr-4 text-center" title="Nombre d'arrets enregistres en favoris">Favoris</th>
+                  <th className="pb-2 pr-4 text-center" title="Nombre d'appareils abonnes aux notifications push">Push</th>
+                  <th className="pb-2 pr-4 text-center" title="Nombre total de notifications push recues">Notifs</th>
+                  <th className="pb-2 pr-4" title="Date d'inscription">Inscrit</th>
+                  <th className="pb-2 w-8"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <UserRow
+                    key={u.id}
+                    user={u}
+                    expanded={expandedUserId === u.id}
+                    onToggle={() => setExpandedUserId(expandedUserId === u.id ? null : u.id)}
+                    updatingId={updatingId}
+                    onRoleChange={handleRoleChange}
+                    getToken={getToken}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </section>
+  )
+}
+
+function UserRow({ user: u, expanded, onToggle, updatingId, onRoleChange, getToken }: {
+  user: AdminUserRow
+  expanded: boolean
+  onToggle: () => void
+  updatingId: string | null
+  onRoleChange: (userId: string, newRole: string) => void
+  getToken: () => Promise<string | null>
+}) {
+  return (
+    <>
+      <tr
+        className="border-b border-white/5 cursor-pointer hover:bg-white/[0.02] transition-colors"
+        onClick={onToggle}
+      >
+        <td className="py-2.5 pr-4 text-white truncate max-w-[200px]">{u.email}</td>
+        <td className="py-2.5 pr-4" onClick={(e) => e.stopPropagation()}>
+          {u.role === 'admin' ? (
+            <span className="inline-flex items-center gap-1 text-yellow-400 text-xs font-medium">
+              <Shield className="h-3 w-3" />
+              {ROLE_LABELS.admin}
+            </span>
+          ) : (
+            <div className="relative">
+              <select
+                value={u.role}
+                onChange={(e) => onRoleChange(u.id, e.target.value)}
+                disabled={updatingId === u.id}
+                className="appearance-none bg-[#0A0E17] border border-white/10 rounded px-2 py-1 text-xs text-white cursor-pointer disabled:opacity-50"
+              >
+                <option value="editor">{ROLE_LABELS.editor}</option>
+                <option value="user">{ROLE_LABELS.user}</option>
+              </select>
+              {updatingId === u.id && (
+                <Loader2 className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-[#00D4FF]" />
+              )}
+            </div>
+          )}
+        </td>
+        <td className="py-2.5 pr-4 text-center text-[#8892B0]">{u.favoritesCount}</td>
+        <td className="py-2.5 pr-4 text-center text-[#8892B0]">{u.pushSubscriptionsCount}</td>
+        <td className="py-2.5 pr-4 text-center text-[#8892B0]">{u.notificationsReceivedCount}</td>
+        <td className="py-2.5 pr-4 text-[#8892B0] text-xs">
+          {new Date(u.createdAt).toLocaleDateString('fr-BE')}
+        </td>
+        <td className="py-2.5 text-[#8892B0]">
+          {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </td>
+      </tr>
+      {expanded && (
+        <tr>
+          <td colSpan={7} className="p-0">
+            <UserDetailPanel userId={u.id} getToken={getToken} />
+          </td>
+        </tr>
+      )}
+    </>
+  )
+}
+
+/** Expandable detail panel for a single user */
+function UserDetailPanel({ userId, getToken }: { userId: string; getToken: () => Promise<string | null> }) {
+  const { data: detail, isLoading, isError } = useQuery({
+    queryKey: ['admin-user-detail', userId],
+    queryFn: async () => {
+      const token = await getToken()
+      if (!token) throw new Error('Not authenticated')
+      return api.getAdminUserDetails(userId, token)
+    },
+    staleTime: 30_000,
+  })
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-6 bg-[#0A0E17] border-b border-white/5">
+        <Loader2 className="h-5 w-5 animate-spin text-[#8892B0]" />
+      </div>
+    )
+  }
+
+  if (isError || !detail) {
+    return (
+      <div className="py-4 px-6 bg-[#0A0E17] border-b border-white/5 text-sm text-[#FF3D71]">
+        Erreur lors du chargement des details
+      </div>
+    )
+  }
+
+  // Aggregate push subscriptions by browser
+  const browserCounts = new Map<string, number>()
+  for (const sub of detail.pushSubscriptions) {
+    browserCounts.set(sub.browser, (browserCounts.get(sub.browser) ?? 0) + 1)
+  }
+  const browserSummary = [...browserCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([browser, count]) => `${count} ${browser}`)
+    .join(', ')
+
+  // Count today's notifications
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const todayNotifs = detail.recentNotifications.filter(
+    (n) => new Date(n.sentAt) >= todayStart
+  ).length
+
+  return (
+    <div className="bg-[#0A0E17] border-b border-white/5 p-4 space-y-4">
+      {/* Summary bar */}
+      <div className="flex flex-wrap gap-4 text-xs">
+        <div className="flex items-center gap-1.5 text-[#8892B0]">
+          <Clock className="h-3.5 w-3.5" />
+          Heures calmes: <span className="text-white">{detail.quietStart} - {detail.quietEnd}</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-[#8892B0]">
+          <Bell className="h-3.5 w-3.5" />
+          Notifs aujourd&apos;hui: <span className="text-white">{todayNotifs}</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-[#8892B0]">
+          <Smartphone className="h-3.5 w-3.5" />
+          Appareils: <span className="text-white">{browserSummary || 'Aucun'}</span>
+        </div>
+      </div>
+
+      {/* Push subscriptions */}
+      {detail.pushSubscriptions.length > 0 && (
+        <DetailSection title="Abonnements Push" icon={<Smartphone className="h-3.5 w-3.5" />}>
+          <div className="space-y-1.5">
+            {detail.pushSubscriptions.map((sub) => (
+              <div key={sub.id} className="flex items-center gap-3 text-xs rounded-lg border border-white/5 bg-[#131A2B] px-3 py-2">
+                <span className="font-medium text-white min-w-[60px]">{sub.browser}</span>
+                <span className="text-[#8892B0] truncate flex-1 font-mono text-[10px]">
+                  {sub.endpoint.replace(/^https:\/\/[^/]+/, '').slice(0, 60)}...
+                </span>
+                <span className="text-[#8892B0] whitespace-nowrap">
+                  {sub.lastUsed
+                    ? `Vu ${new Date(sub.lastUsed).toLocaleDateString('fr-BE')} ${new Date(sub.lastUsed).toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' })}`
+                    : `Cree ${new Date(sub.createdAt).toLocaleDateString('fr-BE')}`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </DetailSection>
+      )}
+
+      {/* Favorites */}
+      {detail.favorites.length > 0 && (
+        <DetailSection title="Favoris" icon={<Star className="h-3.5 w-3.5" />}>
+          <div className="space-y-1.5">
+            {detail.favorites.map((fav) => (
+              <div key={fav.id} className="flex items-start gap-3 text-xs rounded-lg border border-white/5 bg-[#131A2B] px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    {fav.routeShortName && (
+                      <span className="inline-block rounded bg-[#00D4FF]/20 text-[#00D4FF] px-1.5 py-0.5 font-bold text-[10px]">
+                        {fav.routeShortName}
+                      </span>
+                    )}
+                    <span className="text-white font-medium truncate">{fav.stopName}</span>
+                  </div>
+                  {fav.label && <span className="text-[#8892B0] text-[10px]">{fav.label}</span>}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {fav.notifications ? (
+                    <div className="flex items-center gap-1">
+                      {fav.notifications.timeEnabled && (
+                        <span className="rounded bg-[#00E676]/20 text-[#00E676] px-1.5 py-0.5 text-[10px]" title={`Alerte temps: ${fav.notifications.timeMinutes} min`}>
+                          {fav.notifications.timeMinutes}min
+                        </span>
+                      )}
+                      {fav.notifications.distanceEnabled && (
+                        <span className="rounded bg-[#FF9100]/20 text-[#FF9100] px-1.5 py-0.5 text-[10px]" title={`Alerte distance: ${fav.notifications.distanceMeters}m`}>
+                          {fav.notifications.distanceMeters}m
+                        </span>
+                      )}
+                      {fav.notifications.offrouteEnabled && (
+                        <span className="rounded bg-[#FF3D71]/20 text-[#FF3D71] px-1.5 py-0.5 text-[10px]" title={`Alerte hors route: ${fav.notifications.offrouteMeters}m`}>
+                          HR {fav.notifications.offrouteMeters}m
+                        </span>
+                      )}
+                      {!fav.notifications.timeEnabled && !fav.notifications.distanceEnabled && !fav.notifications.offrouteEnabled && (
+                        <span className="text-[#8892B0] text-[10px]">Notifs off</span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-[#8892B0] text-[10px]">Pas de notifs</span>
+                  )}
+                </div>
+                <span className="text-[#8892B0] text-[10px] whitespace-nowrap">
+                  {new Date(fav.createdAt).toLocaleDateString('fr-BE')}
+                </span>
+              </div>
+            ))}
+          </div>
+        </DetailSection>
+      )}
+
+      {/* Recent notifications */}
+      {detail.recentNotifications.length > 0 && (
+        <DetailSection title="Notifications recentes" icon={<Bell className="h-3.5 w-3.5" />}>
+          <div className="space-y-1">
+            {detail.recentNotifications.slice(0, 20).map((log) => (
+              <div key={log.id} className="flex items-center gap-3 text-xs text-[#8892B0] rounded border border-white/5 bg-[#131A2B] px-3 py-1.5">
+                <TriggerBadge type={log.triggerType} />
+                <span className="text-white truncate flex-1">
+                  {log.routeShortName && (
+                    <span className="text-[#00D4FF] font-medium mr-1">{log.routeShortName}</span>
+                  )}
+                  {log.stopName ?? log.favoriteId.slice(0, 8)}
+                </span>
+                <span className="font-mono text-[10px] text-[#8892B0]">{log.tripId.slice(0, 12)}</span>
+                <span className="whitespace-nowrap text-[10px]">
+                  {new Date(log.sentAt).toLocaleDateString('fr-BE')}{' '}
+                  {new Date(log.sentAt).toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            ))}
+            {detail.recentNotifications.length > 20 && (
+              <p className="text-[10px] text-[#8892B0] text-center pt-1">
+                +{detail.recentNotifications.length - 20} autres notifications
+              </p>
+            )}
+          </div>
+        </DetailSection>
+      )}
+
+      {/* Empty state */}
+      {detail.favorites.length === 0 && detail.pushSubscriptions.length === 0 && detail.recentNotifications.length === 0 && (
+        <p className="text-xs text-[#8892B0] text-center py-2">Aucune donnee pour cet utilisateur</p>
+      )}
+    </div>
+  )
+}
+
+function DetailSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className="text-[#00D4FF]">{icon}</span>
+        <h4 className="text-[10px] font-semibold text-[#8892B0] uppercase tracking-wider">{title}</h4>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function TriggerBadge({ type }: { type: string }) {
+  const styles: Record<string, { bg: string; text: string; label: string }> = {
+    time: { bg: 'bg-[#00E676]/20', text: 'text-[#00E676]', label: 'Temps' },
+    distance: { bg: 'bg-[#FF9100]/20', text: 'text-[#FF9100]', label: 'Dist' },
+    offroute: { bg: 'bg-[#FF3D71]/20', text: 'text-[#FF3D71]', label: 'HR' },
+  }
+  const s = styles[type] ?? { bg: 'bg-white/10', text: 'text-white', label: type }
+  return (
+    <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${s.bg} ${s.text}`}>
+      {s.label}
+    </span>
   )
 }
 
@@ -270,9 +509,9 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
       <div className="mb-5">
         <h3 className="text-xs font-semibold text-[#8892B0] uppercase tracking-wider mb-3">Limites</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <NumberInput label="Max favoris" value={maxFavorites} onChange={setMaxFavorites} min={1} max={999} tooltip="Nombre maximum d'arrêts favoris que l'utilisateur peut enregistrer" />
+          <NumberInput label="Max favoris" value={maxFavorites} onChange={setMaxFavorites} min={1} max={999} tooltip="Nombre maximum d'arrets favoris que l'utilisateur peut enregistrer" />
           <NumberInput label="Max push favoris" value={maxPushFavorites} onChange={setMaxPushFavorites} min={0} max={100} tooltip="Nombre maximum de favoris pouvant avoir des notifications push actives" />
-          <NumberInput label="Max notifications" value={maxPushNotifications} onChange={setMaxPushNotifications} min={0} max={999} tooltip="Nombre total maximum de notifications push envoyées à l'utilisateur" />
+          <NumberInput label="Max notifications" value={maxPushNotifications} onChange={setMaxPushNotifications} min={0} max={999} tooltip="Nombre maximum de notifications push envoyees par jour (reset a minuit, heure de Bruxelles)" />
         </div>
       </div>
 
@@ -280,12 +519,12 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
       <div className="mb-5">
         <h3 className="text-xs font-semibold text-[#8892B0] uppercase tracking-wider mb-3">Visibilite</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          <Toggle label="Debug panel" checked={showDebugPanel} onChange={setShowDebugPanel} tooltip="Affiche le panneau de statut système (Railway API, GTFS-RT, bus actifs) sur la page d'accueil" />
+          <Toggle label="Debug panel" checked={showDebugPanel} onChange={setShowDebugPanel} tooltip="Affiche le panneau de statut systeme (Railway API, GTFS-RT, bus actifs) sur la page d'accueil" />
           <Toggle label="Donnees techniques" checked={showTechnicalData} onChange={setShowTechnicalData} tooltip="Affiche les identifiants techniques (trip ID, coordonnees GPS) dans les panneaux d'info sur la carte" />
-          <Toggle label="Metriques distance" checked={showDistanceMetrics} onChange={setShowDistanceMetrics} tooltip="Affiche la distance route/vol d'oiseau entre le bus et l'arrêt dans les panneaux de la carte" />
+          <Toggle label="Metriques distance" checked={showDistanceMetrics} onChange={setShowDistanceMetrics} tooltip="Affiche la distance route/vol d'oiseau entre le bus et l'arret dans les panneaux de la carte" />
           <Toggle label="Badges retard" checked={showDelayBadges} onChange={setShowDelayBadges} tooltip="Affiche les badges de retard/avance (ex: +2min, -1min) sur les cartes de favoris" />
-          <Toggle label="Page Live" checked={showLivePage} onChange={setShowLivePage} tooltip="Donne accès à la page 'En temps réel' listant tous les bus et lignes actifs" />
-          <Toggle label="Page Alertes" checked={showAlertsPage} onChange={setShowAlertsPage} tooltip="Donne accès à la page 'Alertes' affichant les perturbations TEC en cours" />
+          <Toggle label="Page Live" checked={showLivePage} onChange={setShowLivePage} tooltip="Donne acces a la page 'En temps reel' listant tous les bus et lignes actifs" />
+          <Toggle label="Page Alertes" checked={showAlertsPage} onChange={setShowAlertsPage} tooltip="Donne acces a la page 'Alertes' affichant les perturbations TEC en cours" />
         </div>
       </div>
 
@@ -293,7 +532,7 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
       <div className="mb-5">
         <h3 className="text-xs font-semibold text-[#8892B0] uppercase tracking-wider mb-3">Affichage</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <NumberInput label="Arrivees par carte" value={arrivalsPerCard} onChange={setArrivalsPerCard} min={1} max={10} tooltip="Nombre de prochains passages affiches par carte de favori (1 à 10)" />
+          <NumberInput label="Arrivees par carte" value={arrivalsPerCard} onChange={setArrivalsPerCard} min={1} max={10} tooltip="Nombre de prochains passages affiches par carte de favori (1 a 10)" />
         </div>
       </div>
 
@@ -301,9 +540,9 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
       <div>
         <h3 className="text-xs font-semibold text-[#8892B0] uppercase tracking-wider mb-3">Types de notifications</h3>
         <div className="grid grid-cols-3 gap-2">
-          <Toggle label="Temps" checked={triggerTime} onChange={setTriggerTime} tooltip="Permet de configurer des alertes basées sur le temps d'arrivée estimé (ex: notifier quand le bus arrive dans 5 min)" />
-          <Toggle label="Distance" checked={triggerDistance} onChange={setTriggerDistance} tooltip="Permet de configurer des alertes basées sur la distance du bus par rapport à l'arrêt (ex: notifier quand le bus est à 500m)" />
-          <Toggle label="Hors route" checked={triggerOffroute} onChange={setTriggerOffroute} tooltip="Permet de configurer des alertes quand un bus dévie de son itinéraire prévu au-delà d'un seuil configurable" />
+          <Toggle label="Temps" checked={triggerTime} onChange={setTriggerTime} tooltip="Permet de configurer des alertes basees sur le temps d'arrivee estime (ex: notifier quand le bus arrive dans 5 min)" />
+          <Toggle label="Distance" checked={triggerDistance} onChange={setTriggerDistance} tooltip="Permet de configurer des alertes basees sur la distance du bus par rapport a l'arret (ex: notifier quand le bus est a 500m)" />
+          <Toggle label="Hors route" checked={triggerOffroute} onChange={setTriggerOffroute} tooltip="Permet de configurer des alertes quand un bus devie de son itineraire prevu au-dela d'un seuil configurable" />
         </div>
       </div>
     </section>

@@ -162,6 +162,52 @@ async function getActiveSettings(): Promise<ActiveSetting[]> {
   return result
 }
 
+// In-memory cache for daily counts to avoid hammering DB every 30s
+const dailyCountCache = new Map<string, { count: number; fetchedAt: number }>()
+
+/** Get today's midnight in Brussels as ISO string (UTC) for DB queries */
+function todayMidnightBrussels(): string {
+  const now = new Date()
+  // Get current time in Brussels
+  const brusselsNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Brussels' }))
+  // Compute ms elapsed since midnight in Brussels
+  const msSinceMidnight = brusselsNow.getHours() * 3600_000 + brusselsNow.getMinutes() * 60_000
+    + brusselsNow.getSeconds() * 1000 + brusselsNow.getMilliseconds()
+  // Subtract from real "now" to get Brussels midnight in UTC
+  return new Date(now.getTime() - msSinceMidnight).toISOString()
+}
+
+/** Check if user has exceeded their daily notification limit */
+async function isDailyLimitReached(userId: string): Promise<boolean> {
+  // Get user's role and daily limit
+  const [{ data: profile }, { data: roleConfigs }] = await Promise.all([
+    supabase.from('profiles').select('role').eq('id', userId).single(),
+    supabase.from('role_config').select('role, max_push_notifications'),
+  ])
+
+  const role = (profile as { role?: string } | null)?.role ?? 'user'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const configRow = (roleConfigs ?? []).find((c: any) => c.role === role) as { max_push_notifications: number } | undefined
+  const dailyLimit = configRow?.max_push_notifications ?? 50
+
+  // Get today's count (use cache if fresh, 60s TTL)
+  const cached = dailyCountCache.get(userId)
+  if (cached && Date.now() - cached.fetchedAt < 60_000) {
+    return cached.count >= dailyLimit
+  }
+
+  const midnight = todayMidnightBrussels()
+  const { count } = await supabase
+    .from('notification_log')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('sent_at', midnight)
+
+  const todayCount = count ?? 0
+  dailyCountCache.set(userId, { count: todayCount, fetchedAt: Date.now() })
+  return todayCount >= dailyLimit
+}
+
 async function sendToUser(
   setting: ActiveSetting,
   trigger: NotificationTrigger,
@@ -171,6 +217,9 @@ async function sendToUser(
 ) {
   const key = dedupKey(setting.userId, setting.favoriteId, trigger, tripId)
   if (isRecentlySent(key, trigger)) return
+
+  // Check daily limit
+  if (await isDailyLimitReached(setting.userId)) return
 
   const payload = {
     title,
@@ -202,6 +251,9 @@ async function sendToUser(
       trigger_type: trigger,
       trip_id: tripId,
     })
+    // Increment cached daily count
+    const cached = dailyCountCache.get(setting.userId)
+    if (cached) cached.count++
   }
 }
 

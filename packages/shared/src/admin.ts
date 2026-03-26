@@ -40,6 +40,56 @@ export interface AdminUserRow {
   notificationsReceivedCount: number
 }
 
+/** Detailed user info for admin user drill-down */
+export interface AdminUserDetail {
+  id: string
+  email: string
+  role: UserRole
+  createdAt: string
+  quietStart: string
+  quietEnd: string
+  favorites: AdminUserFavorite[]
+  pushSubscriptions: AdminPushSubscription[]
+  recentNotifications: AdminNotificationLog[]
+}
+
+export interface AdminUserFavorite {
+  id: string
+  stopId: string
+  stopName: string
+  routeId: string | null
+  routeShortName: string | null
+  label: string | null
+  createdAt: string
+  notifications: {
+    timeEnabled: boolean
+    timeMinutes: number
+    distanceEnabled: boolean
+    distanceMeters: number
+    offrouteEnabled: boolean
+    offrouteMeters: number
+  } | null
+}
+
+export interface AdminPushSubscription {
+  id: string
+  endpoint: string
+  userAgent: string | null
+  browser: string
+  createdAt: string
+  lastUsed: string | null
+}
+
+export interface AdminNotificationLog {
+  id: string
+  favoriteId: string
+  triggerType: string
+  tripId: string
+  sentAt: string
+  stopName: string | null
+  routeShortName: string | null
+}
+
 /** Hardcoded fallback if DB is unreachable */
 export const DEFAULT_ROLE_CONFIG: Record<UserRole, RoleConfig> = {
   admin: {
