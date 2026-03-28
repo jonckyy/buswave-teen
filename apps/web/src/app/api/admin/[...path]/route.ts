@@ -18,6 +18,9 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
 export async function POST(req: NextRequest, ctx: RouteContext) {
   return proxy(req, ctx.params.path)
 }
+export async function DELETE(req: NextRequest, ctx: RouteContext) {
+  return proxy(req, ctx.params.path)
+}
 
 async function proxy(req: NextRequest, path: string[]) {
   const subPath = path.join('/')

@@ -23,8 +23,8 @@ export function DebugStatus() {
   const gtfsOk = !vehiclesError && vehicles !== undefined
 
   return (
-    <div className="mb-6 rounded-lg border border-white/10 bg-[#0d1220] px-4 py-3 font-mono text-xs">
-      <p className="text-[#8892B0] mb-2 uppercase tracking-widest text-[10px]">System status</p>
+    <div className="mb-6 rounded-lg border border-white/10 bg-background px-4 py-3 font-mono text-xs">
+      <p className="text-muted mb-2 uppercase tracking-widest text-[10px]">System status</p>
       <div className="space-y-1">
         <StatusRow
           label="Railway API"
@@ -63,20 +63,20 @@ function StatusRow({
   href?: string
 }) {
   const dot = loading ? '…' : ok ? '●' : '●'
-  const dotColor = loading ? 'text-[#8892B0]' : ok ? 'text-[#00E676]' : 'text-[#FF3D71]'
+  const dotColor = loading ? 'text-muted' : ok ? 'text-on-time' : 'text-large-delay'
   const status = loading ? 'checking' : ok ? 'ok' : 'error'
 
   const valueEl = value !== undefined && (
     href
-      ? <Link href={href} className="text-[#00D4FF] ml-1 hover:underline">{value}</Link>
-      : <span className="text-[#00D4FF] ml-1">{value}</span>
+      ? <Link href={href} className="text-accent-cyan ml-1 hover:underline">{value}</Link>
+      : <span className="text-accent-cyan ml-1">{value}</span>
   )
 
   return (
     <div className="flex items-center gap-2">
       <span className={`${dotColor} text-[10px]`}>{dot}</span>
-      <span className="text-[#8892B0] w-28">{label}</span>
-      <span className={ok && !loading ? 'text-white/70' : 'text-[#8892B0]'}>{status}</span>
+      <span className="text-muted w-28">{label}</span>
+      <span className={ok && !loading ? 'text-white/70' : 'text-muted'}>{status}</span>
       {valueEl}
     </div>
   )

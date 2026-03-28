@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { requireAuth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/requireAdmin.js'
 import { supabase } from '../lib/supabase.js'
-import type { ApiResponse, RoleConfig, AdminUserRow, AdminUserDetail, AdminUserFavorite, AdminPushSubscription, AdminNotificationLog, UserRole } from '@buswave/shared'
+import type { ApiResponse, RoleConfig, AdminUserRow, AdminUserDetail, AdminUserFavorite, AdminPushSubscription, AdminNotificationLog, UserRole, Theme } from '@buswave/shared'
 
 export const adminRouter = new Hono()
 
@@ -21,6 +21,7 @@ function toRoleConfig(row: Record<string, unknown>): RoleConfig {
     showAlertsPage: row.show_alerts_page as boolean,
     arrivalsPerCard: row.arrivals_per_card as number,
     allowedTriggerTypes: row.allowed_trigger_types as string[],
+    themeId: (row.theme_id as string) ?? 'midnight',
     updatedAt: row.updated_at as string,
   }
 }
@@ -64,6 +65,7 @@ adminRouter.put('/role-config/:role', requireAdmin, async (c) => {
   if (body.showAlertsPage !== undefined) update.show_alerts_page = body.showAlertsPage
   if (body.arrivalsPerCard !== undefined) update.arrivals_per_card = body.arrivalsPerCard
   if (body.allowedTriggerTypes !== undefined) update.allowed_trigger_types = body.allowedTriggerTypes
+  if (body.themeId !== undefined) update.theme_id = body.themeId
 
   if (Object.keys(update).length === 0) {
     return c.json({ error: 'No fields to update' }, 400)
@@ -290,6 +292,101 @@ adminRouter.get('/users/:userId/details', requireAdmin, async (c) => {
   }
 
   return c.json({ data: detail } satisfies ApiResponse<AdminUserDetail>)
+})
+
+// ─── Theme endpoints ───────────────────────────────────────────────
+
+/** Helper: convert snake_case DB row to camelCase Theme */
+function toTheme(row: Record<string, unknown>): Theme {
+  return {
+    id: row.id as string,
+    label: row.label as string,
+    tokens: row.tokens as Record<string, string>,
+    isBuiltin: row.is_builtin as boolean,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  }
+}
+
+/** GET /themes — public, returns all themes */
+adminRouter.get('/themes', async (c) => {
+  const { data, error } = await supabase
+    .from('themes')
+    .select('*')
+    .order('id')
+
+  if (error) {
+    console.error('[admin] themes fetch error:', error.message)
+    return c.json({ error: 'Failed to fetch themes' }, 500)
+  }
+
+  return c.json({ data: (data ?? []).map(toTheme) } satisfies ApiResponse<Theme[]>)
+})
+
+/** POST /themes — admin only, create a new theme */
+adminRouter.post('/themes', requireAdmin, async (c) => {
+  const body = await c.req.json<{ id: string; label: string; tokens: Record<string, string> }>()
+
+  if (!body.id || !body.label || !body.tokens) {
+    return c.json({ error: 'id, label, and tokens are required' }, 400)
+  }
+
+  const { error } = await supabase.from('themes').insert({
+    id: body.id,
+    label: body.label,
+    tokens: body.tokens,
+    is_builtin: false,
+  })
+
+  if (error) {
+    console.error('[admin] theme create error:', error.message)
+    return c.json({ error: `Failed to create theme: ${error.message}` }, 500)
+  }
+
+  return c.json({ data: { ok: true } })
+})
+
+/** PUT /themes/:id — admin only, update a theme */
+adminRouter.put('/themes/:id', requireAdmin, async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json<{ label?: string; tokens?: Record<string, string> }>()
+
+  const update: Record<string, unknown> = {}
+  if (body.label !== undefined) update.label = body.label
+  if (body.tokens !== undefined) update.tokens = body.tokens
+
+  if (Object.keys(update).length === 0) {
+    return c.json({ error: 'No fields to update' }, 400)
+  }
+
+  const { error } = await supabase.from('themes').update(update).eq('id', id)
+
+  if (error) {
+    console.error('[admin] theme update error:', error.message)
+    return c.json({ error: `Failed to update theme: ${error.message}` }, 500)
+  }
+
+  return c.json({ data: { ok: true } })
+})
+
+/** DELETE /themes/:id — admin only, delete non-builtin themes */
+adminRouter.delete('/themes/:id', requireAdmin, async (c) => {
+  const id = c.req.param('id')
+
+  // Check if builtin
+  const { data: theme } = await supabase.from('themes').select('is_builtin').eq('id', id).single()
+  if (theme?.is_builtin) {
+    return c.json({ error: 'Cannot delete built-in themes' }, 403)
+  }
+
+  const { error } = await supabase.from('themes').delete().eq('id', id)
+
+  if (error) {
+    console.error('[admin] theme delete error:', error.message)
+    return c.json({ error: `Failed to delete theme: ${error.message}` }, 500)
+  }
+
+  return c.json({ data: { ok: true } })
 })
 
 /** PUT /users/:userId/role — admin only, change a user's role */

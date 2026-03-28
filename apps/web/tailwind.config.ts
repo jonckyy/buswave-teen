@@ -6,17 +6,24 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: '#0A0E17',
-        card: '#131A2B',
-        'accent-cyan': '#00D4FF',
-        'on-time': '#00E676',
-        'slight-delay': '#FF9100',
-        'large-delay': '#FF3D71',
-        muted: '#8892B0',
-        border: '#1E2A3F',
+        background: 'rgb(var(--background) / <alpha-value>)',
+        card: 'rgb(var(--card) / <alpha-value>)',
+        'accent-cyan': 'rgb(var(--accent-cyan) / <alpha-value>)',
+        'on-time': 'rgb(var(--on-time) / <alpha-value>)',
+        'slight-delay': 'rgb(var(--slight-delay) / <alpha-value>)',
+        'large-delay': 'rgb(var(--large-delay) / <alpha-value>)',
+        muted: 'rgb(var(--muted) / <alpha-value>)',
+        border: 'rgb(var(--border) / <alpha-value>)',
+        foreground: 'rgb(var(--foreground) / <alpha-value>)',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-family)'],
+      },
+      borderRadius: {
+        sm: 'var(--radius-sm)',
+        md: 'var(--radius-md)',
+        lg: 'var(--radius-lg)',
+        xl: 'var(--radius-lg)',
       },
       keyframes: {
         'pulse-dot': {

@@ -65,13 +65,13 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="flex min-h-[80vh] items-center justify-center">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#131A2B] p-8 shadow-2xl">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-card p-8 shadow-2xl">
         <div className="mb-6 flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2 text-[#00D4FF]">
+          <div className="flex items-center gap-2 text-accent-cyan">
             <Bus className="h-7 w-7" />
             <span className="text-2xl font-bold">BusWave</span>
           </div>
-          <p className="text-sm text-[#8892B0]">Choisissez un nouveau mot de passe</p>
+          <p className="text-sm text-muted">Choisissez un nouveau mot de passe</p>
         </div>
 
         {banner && (
@@ -88,7 +88,7 @@ export default function ResetPasswordPage() {
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-[#8892B0]">Nouveau mot de passe</label>
+            <label className="mb-1 block text-sm font-medium text-muted">Nouveau mot de passe</label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -96,7 +96,7 @@ export default function ResetPasswordPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onBlur={() => setFieldErrors((f) => ({ ...f, password: validatePassword(password) }))}
-                className={`w-full rounded-lg border bg-[#0A0E17] px-3 py-2 pr-10 text-sm text-white placeholder-[#8892B0]/50 outline-none transition-colors focus:border-[#00D4FF] focus:ring-1 focus:ring-[#00D4FF] ${
+                className={`w-full rounded-lg border bg-background px-3 py-2 pr-10 text-sm text-white placeholder-muted/50 outline-none transition-colors focus:border-accent-cyan focus:ring-1 focus:ring-accent-cyan ${
                   fieldErrors.password ? 'border-red-500' : 'border-white/10'
                 }`}
                 placeholder="••••••••"
@@ -104,7 +104,7 @@ export default function ResetPasswordPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword((s) => !s)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8892B0] hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-white"
                 tabIndex={-1}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -116,13 +116,13 @@ export default function ResetPasswordPage() {
                 <div className="h-1.5 w-full rounded-full bg-white/10">
                   <div className={`h-1.5 rounded-full transition-all ${strength.color} ${strength.width}`} />
                 </div>
-                <p className="mt-1 text-xs text-[#8892B0]">{strength.label}</p>
+                <p className="mt-1 text-xs text-muted">{strength.label}</p>
               </div>
             )}
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-[#8892B0]">Confirmer le mot de passe</label>
+            <label className="mb-1 block text-sm font-medium text-muted">Confirmer le mot de passe</label>
             <div className="relative">
               <input
                 type={showConfirm ? 'text' : 'password'}
@@ -130,7 +130,7 @@ export default function ResetPasswordPage() {
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 onBlur={() => setFieldErrors((f) => ({ ...f, confirm: validateConfirm(confirm) }))}
-                className={`w-full rounded-lg border bg-[#0A0E17] px-3 py-2 pr-10 text-sm text-white placeholder-[#8892B0]/50 outline-none transition-colors focus:border-[#00D4FF] focus:ring-1 focus:ring-[#00D4FF] ${
+                className={`w-full rounded-lg border bg-background px-3 py-2 pr-10 text-sm text-white placeholder-muted/50 outline-none transition-colors focus:border-accent-cyan focus:ring-1 focus:ring-accent-cyan ${
                   fieldErrors.confirm ? 'border-red-500' : 'border-white/10'
                 }`}
                 placeholder="••••••••"
@@ -138,7 +138,7 @@ export default function ResetPasswordPage() {
               <button
                 type="button"
                 onClick={() => setShowConfirm((s) => !s)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8892B0] hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-white"
                 tabIndex={-1}
               >
                 {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -150,7 +150,7 @@ export default function ResetPasswordPage() {
           <button
             type="submit"
             disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#00D4FF] py-2.5 text-sm font-semibold text-[#0A0E17] transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent-cyan py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             Mettre à jour le mot de passe

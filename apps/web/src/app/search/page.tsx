@@ -113,7 +113,7 @@ function ToggleFavRow({
         'w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-colors',
         isFav ? 'border-on-time bg-on-time' : 'border-border'
       )}>
-        {isFav && <Check className="h-2.5 w-2.5 text-[#0A0E17]" />}
+        {isFav && <Check className="h-2.5 w-2.5 text-background" />}
       </div>
       <span className="min-w-[2.5rem] rounded bg-accent-cyan/10 px-2 py-0.5 text-center text-xs font-bold text-accent-cyan shrink-0">
         {routeShortName}
@@ -164,7 +164,7 @@ function StopRow({
         'w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-colors',
         isFav ? 'border-on-time bg-on-time' : 'border-border'
       )}>
-        {isFav && <Check className="h-2.5 w-2.5 text-[#0A0E17]" />}
+        {isFav && <Check className="h-2.5 w-2.5 text-background" />}
       </div>
       <span className="w-6 text-center text-xs font-mono text-muted shrink-0">{stop.stopSequence}</span>
       <span className="flex-1 min-w-0">

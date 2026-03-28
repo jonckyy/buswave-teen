@@ -21,6 +21,7 @@ import type {
   RoleConfigUpdate,
   AdminUserRow,
   AdminUserDetail,
+  Theme,
 } from '@buswave/shared'
 
 const BASE = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001'
@@ -184,4 +185,8 @@ export const api = {
       body: JSON.stringify({ role }),
       token,
     }),
+
+  // ── Themes ────────────────────────────────────────────────────────────────
+  getThemes: () =>
+    apiFetch<Theme[]>('/api/admin/themes'),
 }

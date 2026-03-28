@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Users, Settings, Shield, Loader2, Save, Check, ChevronDown, ChevronUp, Bell, Star, Smartphone, Clock } from 'lucide-react'
+import { ArrowLeft, Users, Settings, Shield, Loader2, Save, Check, ChevronDown, ChevronUp, Bell, Star, Smartphone, Clock, Palette } from 'lucide-react'
 import Link from 'next/link'
 import { api } from '@/lib/api'
 import { useUser } from '@/hooks/useUser'
 import { createSupabaseClient } from '@/lib/supabase'
 import { ROLE_LABELS } from '@buswave/shared'
-import type { RoleConfig, RoleConfigUpdate, AdminUserRow, AdminUserDetail, UserRole } from '@buswave/shared'
+import type { RoleConfig, RoleConfigUpdate, AdminUserRow, AdminUserDetail, UserRole, Theme } from '@buswave/shared'
 
 export default function AdminPage() {
   const { user, isAdmin, loading: authLoading } = useUser()
@@ -23,7 +23,7 @@ export default function AdminPage() {
   if (authLoading) {
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-[#8892B0]" />
+        <Loader2 className="h-8 w-8 animate-spin text-muted" />
       </div>
     )
   }
@@ -31,7 +31,7 @@ export default function AdminPage() {
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-3">
-        <Link href="/" className="text-[#8892B0] hover:text-white transition-colors">
+        <Link href="/" className="text-muted hover:text-white transition-colors">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="flex items-center gap-2">
@@ -87,23 +87,23 @@ function UsersSection() {
   }
 
   return (
-    <section className="rounded-xl border border-white/10 bg-[#131A2B] p-5">
+    <section className="rounded-xl border border-white/10 bg-card p-5">
       <div className="flex items-center gap-2 mb-4">
-        <Users className="h-5 w-5 text-[#00D4FF]" />
+        <Users className="h-5 w-5 text-accent-cyan" />
         <h2 className="text-lg font-semibold text-white">Utilisateurs</h2>
-        <span className="ml-auto text-sm text-[#8892B0]">{users.length} utilisateur{users.length !== 1 ? 's' : ''}</span>
+        <span className="ml-auto text-sm text-muted">{users.length} utilisateur{users.length !== 1 ? 's' : ''}</span>
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-[#8892B0]" />
+          <Loader2 className="h-6 w-6 animate-spin text-muted" />
         </div>
       ) : (
         <div className="space-y-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/10 text-left text-xs text-[#8892B0]">
+                <tr className="border-b border-white/10 text-left text-xs text-muted">
                   <th className="pb-2 pr-4">Email</th>
                   <th className="pb-2 pr-4" title="Medium = acces etendu, Standard = acces basique">Role</th>
                   <th className="pb-2 pr-4 text-center" title="Nombre d'arrets enregistres en favoris">Favoris</th>
@@ -161,24 +161,24 @@ function UserRow({ user: u, expanded, onToggle, updatingId, onRoleChange, getTok
                 value={u.role}
                 onChange={(e) => onRoleChange(u.id, e.target.value)}
                 disabled={updatingId === u.id}
-                className="appearance-none bg-[#0A0E17] border border-white/10 rounded px-2 py-1 text-xs text-white cursor-pointer disabled:opacity-50"
+                className="appearance-none bg-background border border-white/10 rounded px-2 py-1 text-xs text-white cursor-pointer disabled:opacity-50"
               >
                 <option value="editor">{ROLE_LABELS.editor}</option>
                 <option value="user">{ROLE_LABELS.user}</option>
               </select>
               {updatingId === u.id && (
-                <Loader2 className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-[#00D4FF]" />
+                <Loader2 className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin text-accent-cyan" />
               )}
             </div>
           )}
         </td>
-        <td className="py-2.5 pr-4 text-center text-[#8892B0]">{u.favoritesCount}</td>
-        <td className="py-2.5 pr-4 text-center text-[#8892B0]">{u.pushSubscriptionsCount}</td>
-        <td className="py-2.5 pr-4 text-center text-[#8892B0]">{u.notificationsReceivedCount}</td>
-        <td className="py-2.5 pr-4 text-[#8892B0] text-xs">
+        <td className="py-2.5 pr-4 text-center text-muted">{u.favoritesCount}</td>
+        <td className="py-2.5 pr-4 text-center text-muted">{u.pushSubscriptionsCount}</td>
+        <td className="py-2.5 pr-4 text-center text-muted">{u.notificationsReceivedCount}</td>
+        <td className="py-2.5 pr-4 text-muted text-xs">
           {new Date(u.createdAt).toLocaleDateString('fr-BE')}
         </td>
-        <td className="py-2.5 text-[#8892B0]">
+        <td className="py-2.5 text-muted">
           {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </td>
       </tr>
@@ -207,15 +207,15 @@ function UserDetailPanel({ userId, getToken }: { userId: string; getToken: () =>
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-6 bg-[#0A0E17] border-b border-white/5">
-        <Loader2 className="h-5 w-5 animate-spin text-[#8892B0]" />
+      <div className="flex justify-center py-6 bg-background border-b border-white/5">
+        <Loader2 className="h-5 w-5 animate-spin text-muted" />
       </div>
     )
   }
 
   if (isError || !detail) {
     return (
-      <div className="py-4 px-6 bg-[#0A0E17] border-b border-white/5 text-sm text-[#FF3D71]">
+      <div className="py-4 px-6 bg-background border-b border-white/5 text-sm text-large-delay">
         Erreur lors du chargement des details
       </div>
     )
@@ -239,18 +239,18 @@ function UserDetailPanel({ userId, getToken }: { userId: string; getToken: () =>
   ).length
 
   return (
-    <div className="bg-[#0A0E17] border-b border-white/5 p-4 space-y-4">
+    <div className="bg-background border-b border-white/5 p-4 space-y-4">
       {/* Summary bar */}
       <div className="flex flex-wrap gap-4 text-xs">
-        <div className="flex items-center gap-1.5 text-[#8892B0]">
+        <div className="flex items-center gap-1.5 text-muted">
           <Clock className="h-3.5 w-3.5" />
           Heures calmes: <span className="text-white">{detail.quietStart} - {detail.quietEnd}</span>
         </div>
-        <div className="flex items-center gap-1.5 text-[#8892B0]">
+        <div className="flex items-center gap-1.5 text-muted">
           <Bell className="h-3.5 w-3.5" />
           Notifs aujourd&apos;hui: <span className="text-white">{todayNotifs}</span>
         </div>
-        <div className="flex items-center gap-1.5 text-[#8892B0]">
+        <div className="flex items-center gap-1.5 text-muted">
           <Smartphone className="h-3.5 w-3.5" />
           Appareils: <span className="text-white">{browserSummary || 'Aucun'}</span>
         </div>
@@ -261,12 +261,12 @@ function UserDetailPanel({ userId, getToken }: { userId: string; getToken: () =>
         <DetailSection title="Abonnements Push" icon={<Smartphone className="h-3.5 w-3.5" />}>
           <div className="space-y-1.5">
             {detail.pushSubscriptions.map((sub) => (
-              <div key={sub.id} className="flex items-center gap-3 text-xs rounded-lg border border-white/5 bg-[#131A2B] px-3 py-2">
+              <div key={sub.id} className="flex items-center gap-3 text-xs rounded-lg border border-white/5 bg-card px-3 py-2">
                 <span className="font-medium text-white min-w-[60px]">{sub.browser}</span>
-                <span className="text-[#8892B0] truncate flex-1 font-mono text-[10px]">
+                <span className="text-muted truncate flex-1 font-mono text-[10px]">
                   {sub.endpoint.replace(/^https:\/\/[^/]+/, '').slice(0, 60)}...
                 </span>
-                <span className="text-[#8892B0] whitespace-nowrap">
+                <span className="text-muted whitespace-nowrap">
                   {sub.lastUsed
                     ? `Vu ${new Date(sub.lastUsed).toLocaleDateString('fr-BE')} ${new Date(sub.lastUsed).toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' })}`
                     : `Cree ${new Date(sub.createdAt).toLocaleDateString('fr-BE')}`}
@@ -282,45 +282,45 @@ function UserDetailPanel({ userId, getToken }: { userId: string; getToken: () =>
         <DetailSection title="Favoris" icon={<Star className="h-3.5 w-3.5" />}>
           <div className="space-y-1.5">
             {detail.favorites.map((fav) => (
-              <div key={fav.id} className="flex items-start gap-3 text-xs rounded-lg border border-white/5 bg-[#131A2B] px-3 py-2">
+              <div key={fav.id} className="flex items-start gap-3 text-xs rounded-lg border border-white/5 bg-card px-3 py-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     {fav.routeShortName && (
-                      <span className="inline-block rounded bg-[#00D4FF]/20 text-[#00D4FF] px-1.5 py-0.5 font-bold text-[10px]">
+                      <span className="inline-block rounded bg-accent-cyan/20 text-accent-cyan px-1.5 py-0.5 font-bold text-[10px]">
                         {fav.routeShortName}
                       </span>
                     )}
                     <span className="text-white font-medium truncate">{fav.stopName}</span>
                   </div>
-                  {fav.label && <span className="text-[#8892B0] text-[10px]">{fav.label}</span>}
+                  {fav.label && <span className="text-muted text-[10px]">{fav.label}</span>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {fav.notifications ? (
                     <div className="flex items-center gap-1">
                       {fav.notifications.timeEnabled && (
-                        <span className="rounded bg-[#00E676]/20 text-[#00E676] px-1.5 py-0.5 text-[10px]" title={`Alerte temps: ${fav.notifications.timeMinutes} min`}>
+                        <span className="rounded bg-on-time/20 text-on-time px-1.5 py-0.5 text-[10px]" title={`Alerte temps: ${fav.notifications.timeMinutes} min`}>
                           {fav.notifications.timeMinutes}min
                         </span>
                       )}
                       {fav.notifications.distanceEnabled && (
-                        <span className="rounded bg-[#FF9100]/20 text-[#FF9100] px-1.5 py-0.5 text-[10px]" title={`Alerte distance: ${fav.notifications.distanceMeters}m`}>
+                        <span className="rounded bg-slight-delay/20 text-slight-delay px-1.5 py-0.5 text-[10px]" title={`Alerte distance: ${fav.notifications.distanceMeters}m`}>
                           {fav.notifications.distanceMeters}m
                         </span>
                       )}
                       {fav.notifications.offrouteEnabled && (
-                        <span className="rounded bg-[#FF3D71]/20 text-[#FF3D71] px-1.5 py-0.5 text-[10px]" title={`Alerte hors route: ${fav.notifications.offrouteMeters}m`}>
+                        <span className="rounded bg-large-delay/20 text-large-delay px-1.5 py-0.5 text-[10px]" title={`Alerte hors route: ${fav.notifications.offrouteMeters}m`}>
                           HR {fav.notifications.offrouteMeters}m
                         </span>
                       )}
                       {!fav.notifications.timeEnabled && !fav.notifications.distanceEnabled && !fav.notifications.offrouteEnabled && (
-                        <span className="text-[#8892B0] text-[10px]">Notifs off</span>
+                        <span className="text-muted text-[10px]">Notifs off</span>
                       )}
                     </div>
                   ) : (
-                    <span className="text-[#8892B0] text-[10px]">Pas de notifs</span>
+                    <span className="text-muted text-[10px]">Pas de notifs</span>
                   )}
                 </div>
-                <span className="text-[#8892B0] text-[10px] whitespace-nowrap">
+                <span className="text-muted text-[10px] whitespace-nowrap">
                   {new Date(fav.createdAt).toLocaleDateString('fr-BE')}
                 </span>
               </div>
@@ -334,15 +334,15 @@ function UserDetailPanel({ userId, getToken }: { userId: string; getToken: () =>
         <DetailSection title="Notifications recentes" icon={<Bell className="h-3.5 w-3.5" />}>
           <div className="space-y-1">
             {detail.recentNotifications.slice(0, 20).map((log) => (
-              <div key={log.id} className="flex items-center gap-3 text-xs text-[#8892B0] rounded border border-white/5 bg-[#131A2B] px-3 py-1.5">
+              <div key={log.id} className="flex items-center gap-3 text-xs text-muted rounded border border-white/5 bg-card px-3 py-1.5">
                 <TriggerBadge type={log.triggerType} />
                 <span className="text-white truncate flex-1">
                   {log.routeShortName && (
-                    <span className="text-[#00D4FF] font-medium mr-1">{log.routeShortName}</span>
+                    <span className="text-accent-cyan font-medium mr-1">{log.routeShortName}</span>
                   )}
                   {log.stopName ?? log.favoriteId.slice(0, 8)}
                 </span>
-                <span className="font-mono text-[10px] text-[#8892B0]">{log.tripId.slice(0, 12)}</span>
+                <span className="font-mono text-[10px] text-muted">{log.tripId.slice(0, 12)}</span>
                 <span className="whitespace-nowrap text-[10px]">
                   {new Date(log.sentAt).toLocaleDateString('fr-BE')}{' '}
                   {new Date(log.sentAt).toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' })}
@@ -350,7 +350,7 @@ function UserDetailPanel({ userId, getToken }: { userId: string; getToken: () =>
               </div>
             ))}
             {detail.recentNotifications.length > 20 && (
-              <p className="text-[10px] text-[#8892B0] text-center pt-1">
+              <p className="text-[10px] text-muted text-center pt-1">
                 +{detail.recentNotifications.length - 20} autres notifications
               </p>
             )}
@@ -360,7 +360,7 @@ function UserDetailPanel({ userId, getToken }: { userId: string; getToken: () =>
 
       {/* Empty state */}
       {detail.favorites.length === 0 && detail.pushSubscriptions.length === 0 && detail.recentNotifications.length === 0 && (
-        <p className="text-xs text-[#8892B0] text-center py-2">Aucune donnee pour cet utilisateur</p>
+        <p className="text-xs text-muted text-center py-2">Aucune donnee pour cet utilisateur</p>
       )}
     </div>
   )
@@ -370,8 +370,8 @@ function DetailSection({ title, icon, children }: { title: string; icon: React.R
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-2">
-        <span className="text-[#00D4FF]">{icon}</span>
-        <h4 className="text-[10px] font-semibold text-[#8892B0] uppercase tracking-wider">{title}</h4>
+        <span className="text-accent-cyan">{icon}</span>
+        <h4 className="text-[10px] font-semibold text-muted uppercase tracking-wider">{title}</h4>
       </div>
       {children}
     </div>
@@ -380,9 +380,9 @@ function DetailSection({ title, icon, children }: { title: string; icon: React.R
 
 function TriggerBadge({ type }: { type: string }) {
   const styles: Record<string, { bg: string; text: string; label: string }> = {
-    time: { bg: 'bg-[#00E676]/20', text: 'text-[#00E676]', label: 'Temps' },
-    distance: { bg: 'bg-[#FF9100]/20', text: 'text-[#FF9100]', label: 'Dist' },
-    offroute: { bg: 'bg-[#FF3D71]/20', text: 'text-[#FF3D71]', label: 'HR' },
+    time: { bg: 'bg-on-time/20', text: 'text-on-time', label: 'Temps' },
+    distance: { bg: 'bg-slight-delay/20', text: 'text-slight-delay', label: 'Dist' },
+    offroute: { bg: 'bg-large-delay/20', text: 'text-large-delay', label: 'HR' },
   }
   const s = styles[type] ?? { bg: 'bg-white/10', text: 'text-white', label: type }
   return (
@@ -410,11 +410,18 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
     staleTime: 5 * 60_000,
   })
 
+  const { data: themes = [] } = useQuery({
+    queryKey: ['themes'],
+    queryFn: () => api.getThemes(),
+    staleTime: 5 * 60_000,
+  })
+
   const config = configs.find((c) => c.role === role)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
   // Local state mirrors config
+  const [themeId, setThemeId] = useState('midnight')
   const [maxFavorites, setMaxFavorites] = useState(0)
   const [maxPushFavorites, setMaxPushFavorites] = useState(0)
   const [maxPushNotifications, setMaxPushNotifications] = useState(0)
@@ -432,6 +439,7 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
   // Sync from fetched config
   useEffect(() => {
     if (!config) return
+    setThemeId(config.themeId ?? 'midnight')
     setMaxFavorites(config.maxFavorites)
     setMaxPushFavorites(config.maxPushFavorites)
     setMaxPushNotifications(config.maxPushNotifications)
@@ -460,6 +468,7 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
       if (triggerOffroute) allowedTriggerTypes.push('offroute')
 
       const update: RoleConfigUpdate = {
+        themeId,
         maxFavorites,
         maxPushFavorites,
         maxPushNotifications,
@@ -489,25 +498,41 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
   const label = ROLE_LABELS[role as UserRole]
 
   return (
-    <section className="rounded-xl border border-white/10 bg-[#131A2B] p-5">
+    <section className="rounded-xl border border-white/10 bg-card p-5">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2">
-          <Settings className="h-5 w-5 text-[#00D4FF]" />
+          <Settings className="h-5 w-5 text-accent-cyan" />
           <h2 className="text-lg font-semibold text-white">{label}</h2>
         </div>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-1.5 rounded-lg bg-[#00D4FF] px-4 py-2 text-sm font-semibold text-[#0A0E17] transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-lg bg-accent-cyan px-4 py-2 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
           {saved ? 'OK' : 'Enregistrer'}
         </button>
       </div>
 
+      {/* Theme */}
+      <div className="mb-5">
+        <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">
+          <span className="inline-flex items-center gap-1.5"><Palette className="h-3.5 w-3.5" /> Theme</span>
+        </h3>
+        <select
+          value={themeId}
+          onChange={(e) => setThemeId(e.target.value)}
+          className="appearance-none bg-background border border-white/10 rounded-lg px-3 py-2 text-sm text-white cursor-pointer w-full sm:w-auto"
+        >
+          {themes.map((t: Theme) => (
+            <option key={t.id} value={t.id}>{t.label}</option>
+          ))}
+        </select>
+      </div>
+
       {/* Limits */}
       <div className="mb-5">
-        <h3 className="text-xs font-semibold text-[#8892B0] uppercase tracking-wider mb-3">Limites</h3>
+        <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Limites</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <NumberInput label="Max favoris" value={maxFavorites} onChange={setMaxFavorites} min={1} max={999} tooltip="Nombre maximum d'arrets favoris que l'utilisateur peut enregistrer" />
           <NumberInput label="Max push favoris" value={maxPushFavorites} onChange={setMaxPushFavorites} min={0} max={100} tooltip="Nombre maximum de favoris pouvant avoir des notifications push actives" />
@@ -517,7 +542,7 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
 
       {/* Feature visibility */}
       <div className="mb-5">
-        <h3 className="text-xs font-semibold text-[#8892B0] uppercase tracking-wider mb-3">Visibilite</h3>
+        <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Visibilite</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           <Toggle label="Debug panel" checked={showDebugPanel} onChange={setShowDebugPanel} tooltip="Affiche le panneau de statut systeme (Railway API, GTFS-RT, bus actifs) sur la page d'accueil" />
           <Toggle label="Donnees techniques" checked={showTechnicalData} onChange={setShowTechnicalData} tooltip="Affiche les identifiants techniques (trip ID, coordonnees GPS) dans les panneaux d'info sur la carte" />
@@ -530,7 +555,7 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
 
       {/* Arrivals per card */}
       <div className="mb-5">
-        <h3 className="text-xs font-semibold text-[#8892B0] uppercase tracking-wider mb-3">Affichage</h3>
+        <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Affichage</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <NumberInput label="Arrivees par carte" value={arrivalsPerCard} onChange={setArrivalsPerCard} min={1} max={10} tooltip="Nombre de prochains passages affiches par carte de favori (1 a 10)" />
         </div>
@@ -538,7 +563,7 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
 
       {/* Trigger types */}
       <div>
-        <h3 className="text-xs font-semibold text-[#8892B0] uppercase tracking-wider mb-3">Types de notifications</h3>
+        <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Types de notifications</h3>
         <div className="grid grid-cols-3 gap-2">
           <Toggle label="Temps" checked={triggerTime} onChange={setTriggerTime} tooltip="Permet de configurer des alertes basees sur le temps d'arrivee estime (ex: notifier quand le bus arrive dans 5 min)" />
           <Toggle label="Distance" checked={triggerDistance} onChange={setTriggerDistance} tooltip="Permet de configurer des alertes basees sur la distance du bus par rapport a l'arret (ex: notifier quand le bus est a 500m)" />
@@ -553,8 +578,8 @@ function NumberInput({ label, value, onChange, min, max, tooltip }: {
   label: string; value: number; onChange: (v: number) => void; min: number; max: number; tooltip?: string
 }) {
   return (
-    <label className="flex items-center justify-between gap-2 rounded-lg border border-white/5 bg-[#0A0E17] px-3 py-2" title={tooltip}>
-      <span className="text-xs text-[#8892B0]">{label}</span>
+    <label className="flex items-center justify-between gap-2 rounded-lg border border-white/5 bg-background px-3 py-2" title={tooltip}>
+      <span className="text-xs text-muted">{label}</span>
       <input
         type="number"
         value={value}
@@ -571,12 +596,12 @@ function Toggle({ label, checked, onChange, tooltip }: {
   label: string; checked: boolean; onChange: (v: boolean) => void; tooltip?: string
 }) {
   return (
-    <label className="flex items-center gap-2 rounded-lg border border-white/5 bg-[#0A0E17] px-3 py-2 cursor-pointer" title={tooltip}>
+    <label className="flex items-center gap-2 rounded-lg border border-white/5 bg-background px-3 py-2 cursor-pointer" title={tooltip}>
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="h-3.5 w-3.5 accent-[#00D4FF]"
+        className="h-3.5 w-3.5 accent-accent-cyan"
       />
       <span className="text-xs text-white">{label}</span>
     </label>

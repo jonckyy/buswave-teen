@@ -23,11 +23,22 @@ export interface RoleConfig {
   showAlertsPage: boolean
   arrivalsPerCard: number
   allowedTriggerTypes: string[]
+  themeId: string
   updatedAt: string
 }
 
 /** Partial update payload for PUT /role-config/:role */
 export type RoleConfigUpdate = Partial<Omit<RoleConfig, 'role' | 'updatedAt'>>
+
+/** Theme definition stored in Supabase */
+export interface Theme {
+  id: string
+  label: string
+  tokens: Record<string, string>
+  isBuiltin: boolean
+  createdAt: string
+  updatedAt: string
+}
 
 /** User row returned by GET /admin/users */
 export interface AdminUserRow {
@@ -105,6 +116,7 @@ export const DEFAULT_ROLE_CONFIG: Record<UserRole, RoleConfig> = {
     showAlertsPage: true,
     arrivalsPerCard: 10,
     allowedTriggerTypes: ['time', 'distance', 'offroute'],
+    themeId: 'midnight',
     updatedAt: '',
   },
   editor: {
@@ -120,6 +132,7 @@ export const DEFAULT_ROLE_CONFIG: Record<UserRole, RoleConfig> = {
     showAlertsPage: true,
     arrivalsPerCard: 5,
     allowedTriggerTypes: ['time', 'distance', 'offroute'],
+    themeId: 'midnight',
     updatedAt: '',
   },
   user: {
@@ -135,6 +148,7 @@ export const DEFAULT_ROLE_CONFIG: Record<UserRole, RoleConfig> = {
     showAlertsPage: true,
     arrivalsPerCard: 3,
     allowedTriggerTypes: ['time'],
+    themeId: 'midnight',
     updatedAt: '',
   },
 }

@@ -56,7 +56,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-6 w-6 animate-spin text-[#8892B0]" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted" />
       </div>
     )
   }
@@ -102,16 +102,16 @@ export default function SettingsPage() {
       <h1 className="text-2xl font-bold text-white">Mon compte</h1>
 
       {/* Profile info */}
-      <div className="rounded-xl border border-white/10 bg-[#131A2B] p-6 space-y-5">
+      <div className="rounded-xl border border-white/10 bg-card p-6 space-y-5">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#00D4FF]/10 text-[#00D4FF]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-cyan/10 text-accent-cyan">
             <User className="h-6 w-6" />
           </div>
           <div>
             <p className="font-semibold text-white">{user.email}</p>
             <div className="flex items-center gap-1.5 mt-0.5">
               {isAdmin && <Shield className="h-3.5 w-3.5 text-yellow-400" />}
-              <span className="text-sm text-[#8892B0]">
+              <span className="text-sm text-muted">
                 {ROLE_LABELS[role ?? 'user'] ?? role}
               </span>
             </div>
@@ -120,15 +120,15 @@ export default function SettingsPage() {
 
         <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
           <div>
-            <p className="text-xs text-[#8892B0] mb-1">Favoris enregistrés</p>
+            <p className="text-xs text-muted mb-1">Favoris enregistrés</p>
             <div className="flex items-center gap-2">
-              <Star className="h-4 w-4 text-[#00D4FF]" />
+              <Star className="h-4 w-4 text-accent-cyan" />
               <span className="text-xl font-bold text-white">{favorites.length}</span>
             </div>
           </div>
           {joinedAt && (
             <div>
-              <p className="text-xs text-[#8892B0] mb-1">Membre depuis</p>
+              <p className="text-xs text-muted mb-1">Membre depuis</p>
               <p className="text-sm text-white">{joinedAt}</p>
             </div>
           )}
@@ -136,14 +136,14 @@ export default function SettingsPage() {
       </div>
 
       {/* Notifications */}
-      <div className="rounded-xl border border-white/10 bg-[#131A2B] p-6 space-y-4">
+      <div className="rounded-xl border border-white/10 bg-card p-6 space-y-4">
         <div className="flex items-center gap-2">
-          <Bell className="h-5 w-5 text-[#00D4FF]" />
+          <Bell className="h-5 w-5 text-accent-cyan" />
           <h2 className="text-base font-semibold text-white">Notifications push</h2>
         </div>
 
         {!pushSupported ? (
-          <p className="text-sm text-[#8892B0]">
+          <p className="text-sm text-muted">
             Les notifications push ne sont pas supportées sur ce navigateur.
           </p>
         ) : pushPermission === 'denied' ? (
@@ -158,7 +158,7 @@ export default function SettingsPage() {
                 <p className="text-sm text-white font-medium">
                   {isSubscribed ? 'Notifications activées' : 'Notifications désactivées'}
                 </p>
-                <p className="text-xs text-[#8892B0]">
+                <p className="text-xs text-muted">
                   {isSubscribed
                     ? 'Vous recevez des alertes pour vos favoris configurés.'
                     : 'Activez pour recevoir des alertes sur vos favoris.'}
@@ -174,7 +174,7 @@ export default function SettingsPage() {
                 className={`rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-90 ${
                   isSubscribed
                     ? 'border border-red-500/30 text-red-400 hover:bg-red-900/20'
-                    : 'bg-[#00D4FF] text-[#0A0E17]'
+                    : 'bg-accent-cyan text-background'
                 }`}
               >
                 {isSubscribed ? 'Désactiver' : 'Activer'}
@@ -182,34 +182,34 @@ export default function SettingsPage() {
             </div>
 
             {/* Quiet hours */}
-            <div className="space-y-3 rounded-xl border border-white/5 bg-[#0A0E17] p-4">
+            <div className="space-y-3 rounded-xl border border-white/5 bg-background p-4">
               <div className="flex items-center gap-2">
-                <Moon className="h-4 w-4 text-[#8892B0]" />
+                <Moon className="h-4 w-4 text-muted" />
                 <span className="text-sm font-medium text-white">Heures silencieuses</span>
               </div>
-              <p className="text-xs text-[#8892B0]">
+              <p className="text-xs text-muted">
                 Aucune notification ne sera envoyée pendant cette période.
               </p>
               {quietLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin text-[#8892B0]" />
+                <Loader2 className="h-4 w-4 animate-spin text-muted" />
               ) : (
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-[#8892B0]">De</label>
+                    <label className="text-xs text-muted">De</label>
                     <input
                       type="time"
                       value={quietStart}
                       onChange={(e) => setQuietStart(e.target.value)}
-                      className="rounded border border-white/10 bg-[#131A2B] px-2 py-1 text-sm text-white"
+                      className="rounded border border-white/10 bg-card px-2 py-1 text-sm text-white"
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-[#8892B0]">à</label>
+                    <label className="text-xs text-muted">à</label>
                     <input
                       type="time"
                       value={quietEnd}
                       onChange={(e) => setQuietEnd(e.target.value)}
-                      className="rounded border border-white/10 bg-[#131A2B] px-2 py-1 text-sm text-white"
+                      className="rounded border border-white/10 bg-card px-2 py-1 text-sm text-white"
                     />
                   </div>
                   <button
@@ -224,7 +224,7 @@ export default function SettingsPage() {
                       setQuietSaving(false)
                     }}
                     disabled={quietSaving}
-                    className="rounded-lg bg-[#00D4FF] px-3 py-1 text-xs font-semibold text-[#0A0E17] hover:opacity-90 disabled:opacity-50"
+                    className="rounded-lg bg-accent-cyan px-3 py-1 text-xs font-semibold text-background hover:opacity-90 disabled:opacity-50"
                   >
                     {quietSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Sauver'}
                   </button>
@@ -236,7 +236,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Change password */}
-      <div className="rounded-xl border border-white/10 bg-[#131A2B] p-6">
+      <div className="rounded-xl border border-white/10 bg-card p-6">
         <h2 className="text-base font-semibold text-white mb-4">Changer le mot de passe</h2>
 
         {banner && (
@@ -253,7 +253,7 @@ export default function SettingsPage() {
 
         <form onSubmit={handlePasswordChange} noValidate className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-[#8892B0]">
+            <label className="mb-1 block text-sm font-medium text-muted">
               Nouveau mot de passe
             </label>
             <div className="relative">
@@ -262,13 +262,13 @@ export default function SettingsPage() {
                 autoComplete="new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-[#0A0E17] px-3 py-2 pr-10 text-sm text-white placeholder-[#8892B0]/50 outline-none transition-colors focus:border-[#00D4FF] focus:ring-1 focus:ring-[#00D4FF]"
+                className="w-full rounded-lg border border-white/10 bg-background px-3 py-2 pr-10 text-sm text-white placeholder-muted/50 outline-none transition-colors focus:border-accent-cyan focus:ring-1 focus:ring-accent-cyan"
                 placeholder="••••••••"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((s) => !s)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8892B0] hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-white"
                 tabIndex={-1}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -277,13 +277,13 @@ export default function SettingsPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-[#8892B0]">Confirmer</label>
+            <label className="mb-1 block text-sm font-medium text-muted">Confirmer</label>
             <input
               type="password"
               autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-[#0A0E17] px-3 py-2 text-sm text-white placeholder-[#8892B0]/50 outline-none transition-colors focus:border-[#00D4FF] focus:ring-1 focus:ring-[#00D4FF]"
+              className="w-full rounded-lg border border-white/10 bg-background px-3 py-2 text-sm text-white placeholder-muted/50 outline-none transition-colors focus:border-accent-cyan focus:ring-1 focus:ring-accent-cyan"
               placeholder="••••••••"
             />
           </div>
@@ -291,7 +291,7 @@ export default function SettingsPage() {
           <button
             type="submit"
             disabled={saving || !newPassword}
-            className="flex items-center gap-2 rounded-lg bg-[#00D4FF] px-4 py-2 text-sm font-semibold text-[#0A0E17] hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="flex items-center gap-2 rounded-lg bg-accent-cyan px-4 py-2 text-sm font-semibold text-background hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
             Mettre à jour

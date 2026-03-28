@@ -15,6 +15,19 @@ export function delayColor(delaySeconds: number): string {
 // Re-export geo functions from shared package (single source of truth)
 export { haversineKm, shapePolylineDistanceKm as shapeDistanceKm } from '@buswave/shared'
 
+/** Read a CSS variable's computed RGB value as a hex string (for Leaflet/SVG contexts) */
+export function getThemeColor(varName: string): string {
+  if (typeof window === 'undefined') return '#8892B0'
+  const rgb = getComputedStyle(document.documentElement)
+    .getPropertyValue(varName)
+    .trim()
+  const parts = rgb.split(/\s+/).map(Number)
+  if (parts.length === 3 && parts.every((n) => !isNaN(n))) {
+    return `#${parts.map((n) => n.toString(16).padStart(2, '0')).join('')}`
+  }
+  return '#8892B0'
+}
+
 /** Format delay for display: "+3 min", "-1 min", "à l'heure" */
 export function formatDelay(delaySeconds: number): string {
   if (Math.abs(delaySeconds) <= 30) return "à l'heure"

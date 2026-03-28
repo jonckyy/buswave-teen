@@ -113,7 +113,7 @@ function BusInfoPanel({ vehicle: v, details, loadingDetails, onClose }: BusInfoP
   const nextStopName = details?.nextStopName
 
   return (
-    <div className="absolute top-3 left-3 z-[1000] w-72 rounded-xl border border-border bg-[#131A2B]/95 backdrop-blur shadow-xl text-sm">
+    <div className="absolute top-3 left-3 z-[1000] w-72 rounded-xl border border-border bg-card/95 backdrop-blur shadow-xl text-sm">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2">
@@ -241,7 +241,7 @@ function StopInfoPanel({ stop, routeId, vehicles, shapeSegments, stopDirMap, onC
   }, [firstBus, shapeSegments, stopDirMap, stop])
 
   return (
-    <div className="absolute top-3 left-3 z-[1000] w-72 rounded-xl border border-border bg-[#131A2B]/95 backdrop-blur shadow-xl text-sm">
+    <div className="absolute top-3 left-3 z-[1000] w-72 rounded-xl border border-border bg-card/95 backdrop-blur shadow-xl text-sm">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2 min-w-0">
@@ -590,7 +590,7 @@ export function BusMap({ routeId, height = 480, onRouteFilter, initialStopId }: 
         <div className="absolute bottom-3 left-3 z-[1000] flex flex-col gap-1 rounded-lg bg-background/80 backdrop-blur px-3 py-2 text-xs">
           {stopsQuery.data.map((dir) => (
             <div key={dir.directionId} className="flex items-center gap-2">
-              <span className="inline-block w-2.5 h-2.5 rounded-sm border border-[#0A0E17]" style={{ background: DIR_COLORS[String(dir.directionId)] ?? '#8892B0' }} />
+              <span className="inline-block w-2.5 h-2.5 rounded-sm border border-background" style={{ background: DIR_COLORS[String(dir.directionId)] ?? '#8892B0' }} />
               <span className="text-muted truncate max-w-[160px]">→ {dir.headsign}</span>
             </div>
           ))}
