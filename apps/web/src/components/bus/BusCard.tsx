@@ -19,6 +19,11 @@ interface BusCardProps {
   routeId: string | null
 }
 
+function formatClockTime(unix: number): string {
+  const d = new Date(unix * 1000)
+  return d.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' })
+}
+
 function ArrivalRow({ arrival, showDelayBadges = true }: { arrival: StopArrival; showDelayBadges?: boolean }) {
   const countdown = useCountdown(arrival.predictedArrivalUnix)
   const color = delayColor(arrival.delaySeconds)
@@ -39,6 +44,9 @@ function ArrivalRow({ arrival, showDelayBadges = true }: { arrival: StopArrival;
             {formatDelay(arrival.delaySeconds)}
           </span>
         )}
+        <span className="text-xs text-muted tabular-nums">
+          {formatClockTime(arrival.predictedArrivalUnix)}
+        </span>
         <span className="text-sm font-semibold text-white tabular-nums">
           {formatCountdown(countdown)}
         </span>

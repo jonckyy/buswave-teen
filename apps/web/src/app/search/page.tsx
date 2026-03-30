@@ -24,7 +24,6 @@ function NearbyStopCard({ stop, activeRouteIds }: { stop: GtfsStop; activeRouteI
   const { data: routes = [], isLoading } = useQuery({
     queryKey: ['stop-routes', stop.stop_id],
     queryFn: () => api.stopRoutes(stop.stop_id),
-    enabled: expanded,
     staleTime: 60_000,
   })
 
@@ -38,7 +37,13 @@ function NearbyStopCard({ stop, activeRouteIds }: { stop: GtfsStop; activeRouteI
           <MapPin className="h-4 w-4 text-accent-cyan shrink-0" />
           <div className="min-w-0">
             <p className="text-sm font-medium text-white truncate">{stop.stop_name}</p>
-            {stop.stop_code && <p className="text-xs text-muted">Code {stop.stop_code}</p>}
+            {routes.length > 0 ? (
+              <p className="text-xs text-muted truncate">
+                {routes.map((r) => `${r.route_short_name} → ${r.route_long_name || r.headsign}`).join(' · ')}
+              </p>
+            ) : stop.stop_code ? (
+              <p className="text-xs text-muted">Code {stop.stop_code}</p>
+            ) : null}
           </div>
         </div>
         {expanded
@@ -485,14 +490,14 @@ function SearchPageInner() {
   const { data: routes = [], isLoading: loadingRoutes } = useQuery({
     queryKey: ['routes-search', query],
     queryFn: () => api.searchRoutes(query),
-    enabled: mode === 'ligne' && query.length >= 2,
+    enabled: mode === 'ligne' && query.length >= 1,
     staleTime: 5_000,
   })
 
   const { data: stops = [], isLoading: loadingStops } = useQuery({
     queryKey: ['stops-search', query],
     queryFn: () => api.searchStops(query),
-    enabled: mode === 'arret' && query.length >= 2,
+    enabled: mode === 'arret' && query.length >= 1,
     staleTime: 5_000,
   })
 
@@ -555,7 +560,7 @@ function SearchPageInner() {
       {/* Results */}
       {mode === 'nearby' ? (
         <NearbyTab activeRouteIds={activeRouteIds} />
-      ) : query.length >= 2 ? (
+      ) : query.length >= 1 ? (
         <div className="space-y-2">
           {isLoading
             ? Array.from({ length: 3 }).map((_, i) => (
@@ -572,7 +577,7 @@ function SearchPageInner() {
         </div>
       ) : (
         <p className="text-muted text-center py-8 text-sm">
-          Tapez au moins 2 caractères pour rechercher
+          Tapez au moins 1 caractère pour rechercher
         </p>
       )}
     </div>
