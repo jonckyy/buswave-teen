@@ -481,7 +481,9 @@ function SearchPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const [mode, setMode] = useState<Mode>((searchParams.get('mode') as Mode) ?? _cachedMode)
+  const rawMode = searchParams.get('mode') as Mode | null
+  const hasQuery = !!searchParams.get('q')
+  const [mode, setMode] = useState<Mode>(rawMode ?? (hasQuery ? 'ligne' : _cachedMode))
   const [query, setQuery] = useState(searchParams.get('q') ?? _cachedQuery)
 
   useEffect(() => {

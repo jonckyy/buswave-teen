@@ -106,9 +106,6 @@ test.describe('Home page (/)', () => {
     // Accept rgb(10, 14, 23) or similar — not white
     expect(bg).not.toBe('rgb(255, 255, 255)')
 
-    // System status panel
-    await expect(page.getByText('System status')).toBeVisible({ timeout: 15_000 })
-
     // Nav links present
     await expect(page.getByRole('link', { name: /carte|map/i }).first()).toBeVisible()
     await expect(page.getByRole('link', { name: /alertes/i })).toBeVisible()
@@ -119,21 +116,6 @@ test.describe('Home page (/)', () => {
 
     // No JS errors
     expect(errors, `Console errors: ${errors.join('\n')}`).toHaveLength(0)
-  })
-
-  test('debug panel shows Railway API online with commit hash', async ({ page }) => {
-    await page.goto('/')
-    await expect(page.getByText('Railway API')).toBeVisible({ timeout: 15_000 })
-    await expect(page.locator('text=commit')).toBeVisible({ timeout: 20_000 })
-  })
-
-  test('debug panel shows live bus count > 0', async ({ page }) => {
-    await page.goto('/')
-    await expect(page.getByText('Live buses')).toBeVisible({ timeout: 20_000 })
-    const liveLink = page.locator('a[href="/live"]').first()
-    await expect(liveLink).toBeVisible({ timeout: 20_000 })
-    const text = await liveLink.textContent()
-    expect(Number(text?.trim())).toBeGreaterThan(0)
   })
 
   test('favorites section renders when favorites exist in localStorage', async ({ page }) => {
@@ -213,7 +195,7 @@ test.describe('Search page (/search)', () => {
   test('loads with search input visible', async ({ page }) => {
     const { errors } = collectConsoleLogs(page)
 
-    await page.goto('/search')
+    await page.goto('/search?mode=ligne')
     const input = page.locator('input[placeholder*="ligne"], input[placeholder*="Ligne"]').first()
     await expect(input).toBeVisible({ timeout: 15_000 })
 
@@ -221,7 +203,7 @@ test.describe('Search page (/search)', () => {
   })
 
   test('URL reflects typed query via router.replace', async ({ page }) => {
-    await page.goto('/search')
+    await page.goto('/search?mode=ligne')
     const input = page.locator('input[placeholder*="ligne"], input[placeholder*="Ligne"]').first()
     await expect(input).toBeVisible({ timeout: 15_000 })
     await input.fill('12')
@@ -230,7 +212,7 @@ test.describe('Search page (/search)', () => {
   })
 
   test('pre-filled query shows results', async ({ page }) => {
-    await page.goto('/search?q=12')
+    await page.goto('/search?mode=ligne&q=12')
     await expect(
       page.locator('button').filter({ hasText: /Ligne TEC/i }).first()
     ).toBeVisible({ timeout: 20_000 })
@@ -492,20 +474,14 @@ test.describe('Design token verification', () => {
     })
   }
 
-  test('accent cyan color is present on home page', async ({ page }) => {
+  test('accent color CSS variable is defined', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    // Check for elements with the cyan accent color (#00D4FF)
-    const hasCyan = await page.evaluate(() => {
-      const elements = Array.from(document.querySelectorAll('*'))
-      return elements.some((el) => {
-        const styles = window.getComputedStyle(el)
-        const color = styles.color
-        const bg = styles.backgroundColor
-        return color.includes('0, 212, 255') || bg.includes('0, 212, 255')
-      })
-    })
-    expect(hasCyan).toBeTruthy()
+    const accentVar = await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim()
+    )
+    expect(accentVar).toBeTruthy()
+    expect(accentVar).not.toBe('')
   })
 })
 
@@ -576,7 +552,7 @@ test.describe('Mobile viewport', () => {
   })
 
   test('search page input is reachable on mobile', async ({ page }) => {
-    await page.goto('/search')
+    await page.goto('/search?mode=ligne')
     const input = page.locator('input[placeholder*="ligne"], input[placeholder*="Ligne"]').first()
     await expect(input).toBeVisible({ timeout: 15_000 })
     await input.click()

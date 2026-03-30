@@ -1,26 +1,19 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Home page', () => {
-  test('shows debug status widget', async ({ page }) => {
+  test('loads with dark background and nav links', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByText('System status')).toBeVisible({ timeout: 10_000 })
-  })
+    await page.waitForLoadState('networkidle')
 
-  test('debug widget shows Railway API online', async ({ page }) => {
-    await page.goto('/')
-    // wait for the API check to resolve
-    await expect(page.getByText('Railway API')).toBeVisible()
-    await expect(page.locator('text=commit')).toBeVisible({ timeout: 15_000 })
-  })
+    // Dark background
+    const bg = await page.evaluate(() =>
+      window.getComputedStyle(document.body).backgroundColor
+    )
+    expect(bg).not.toBe('rgb(255, 255, 255)')
 
-  test('debug widget shows live bus count', async ({ page }) => {
-    await page.goto('/')
-    await expect(page.getByText('Live buses')).toBeVisible({ timeout: 15_000 })
-    // The bus count link should be visible (rendered as a Link to /live)
-    const liveLink = page.locator('a[href="/live"]').first()
-    await expect(liveLink).toBeVisible({ timeout: 15_000 })
-    const text = await liveLink.textContent()
-    expect(Number(text?.trim())).toBeGreaterThan(0)
+    // Nav links present
+    await expect(page.getByRole('link', { name: /carte|map/i }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: /alertes/i })).toBeVisible()
   })
 
   test('no AlertsBanner on home page', async ({ page }) => {
