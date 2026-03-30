@@ -10,7 +10,7 @@ import { api } from '@/lib/api'
 import { useCountdown, formatCountdown } from '@/hooks/useCountdown'
 import { useFeatureFlags } from '@/hooks/useFeatureFlags'
 import { cn, delayColor, formatDelay } from '@/lib/utils'
-import { getTileUrl, isTileDark } from '@buswave/shared'
+import { getTileUrl, isTileDark, haversineKm } from '@buswave/shared'
 import type { StopArrival, VehiclePosition } from '@buswave/shared'
 
 const FavoriteMapView = dynamic(() => import('./FavoriteMapView'), { ssr: false })
@@ -70,6 +70,51 @@ function FavoriteMapInner() {
     return vehicles.find((v) => v.tripId === firstTripId) ?? null
   }, [arrivals, routeLive?.vehicles, allVehicles])
 
+  // Compute distances between bus and stop
+  const distances = useMemo(() => {
+    if (!nextBus || !stopData) return null
+
+    // Bird distance (straight line)
+    const birdKm = haversineKm(nextBus.lat, nextBus.lon, stopData.stop_lat, stopData.stop_lon)
+
+    // Route distance (along polyline between bus and stop)
+    let routeKm: number | null = null
+    if (routeLive?.shapeSegments?.length) {
+      // Find closest segment to bus
+      let bestSeg = routeLive.shapeSegments[0]
+      let bestDist = Infinity
+      for (const seg of routeLive.shapeSegments) {
+        for (const p of seg) {
+          const d = (p.lat - nextBus.lat) ** 2 + (p.lon - nextBus.lon) ** 2
+          if (d < bestDist) { bestDist = d; bestSeg = seg }
+        }
+      }
+
+      // Find indices on the segment
+      const findClosest = (seg: Array<{ lat: number; lon: number }>, lat: number, lon: number) => {
+        let best = 0, bd = Infinity
+        for (let i = 0; i < seg.length; i++) {
+          const d = (seg[i].lat - lat) ** 2 + (seg[i].lon - lon) ** 2
+          if (d < bd) { bd = d; best = i }
+        }
+        return best
+      }
+      const busIdx = findClosest(bestSeg, nextBus.lat, nextBus.lon)
+      const stopIdx = findClosest(bestSeg, stopData.stop_lat, stopData.stop_lon)
+      const from = Math.min(busIdx, stopIdx)
+      const to = Math.max(busIdx, stopIdx)
+
+      // Sum haversine distances along the trimmed segment
+      let total = 0
+      for (let i = from; i < to; i++) {
+        total += haversineKm(bestSeg[i].lat, bestSeg[i].lon, bestSeg[i + 1].lat, bestSeg[i + 1].lon)
+      }
+      routeKm = total
+    }
+
+    return { birdKm, routeKm }
+  }, [nextBus, stopData, routeLive])
+
   const next3 = arrivals.slice(0, flags.arrivalsPerCard)
   const mapHref = `/map?stopId=${stopId}${routeId ? `&routeId=${routeId}` : ''}`
 
@@ -107,6 +152,22 @@ function FavoriteMapInner() {
             <Map className="h-3.5 w-3.5" /> Carte complète
           </Link>
         </div>
+
+        {/* Distances */}
+        {distances && (
+          <div className="flex items-center gap-4 text-xs">
+            {distances.routeKm != null && (
+              <span className="flex items-center gap-1.5 text-muted">
+                <span className="inline-block w-3 h-0.5 bg-accent-cyan rounded" />
+                Route : <span className="text-white font-semibold">{distances.routeKm < 1 ? `${Math.round(distances.routeKm * 1000)}m` : `${distances.routeKm.toFixed(1)}km`}</span>
+              </span>
+            )}
+            <span className="flex items-center gap-1.5 text-muted">
+              <span className="inline-block w-3 h-0 border-t border-dashed border-muted" />
+              Vol d&apos;oiseau : <span className="text-white font-semibold">{distances.birdKm < 1 ? `${Math.round(distances.birdKm * 1000)}m` : `${distances.birdKm.toFixed(1)}km`}</span>
+            </span>
+          </div>
+        )}
 
         {/* Arrivals */}
         {next3.length > 0 ? (
