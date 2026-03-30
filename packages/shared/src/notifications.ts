@@ -7,7 +7,7 @@ export interface NotificationSettings {
   favoriteId: string
   userId: string
   timeEnabled: boolean
-  timeMinutes: number
+  timeMinutes: number[]
   distanceEnabled: boolean
   distanceMeters: number
   offrouteEnabled: boolean
@@ -16,7 +16,7 @@ export interface NotificationSettings {
 
 export interface NotificationSettingsUpsert {
   timeEnabled?: boolean
-  timeMinutes?: number
+  timeMinutes?: number[]
   distanceEnabled?: boolean
   distanceMeters?: number
   offrouteEnabled?: boolean

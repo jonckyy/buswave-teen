@@ -74,7 +74,7 @@ export interface AdminUserFavorite {
   createdAt: string
   notifications: {
     timeEnabled: boolean
-    timeMinutes: number
+    timeMinutes: number[]
     distanceEnabled: boolean
     distanceMeters: number
     offrouteEnabled: boolean

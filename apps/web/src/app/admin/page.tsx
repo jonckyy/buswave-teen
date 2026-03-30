@@ -297,11 +297,11 @@ function UserDetailPanel({ userId, getToken }: { userId: string; getToken: () =>
                 <div className="flex items-center gap-2 shrink-0">
                   {fav.notifications ? (
                     <div className="flex items-center gap-1">
-                      {fav.notifications.timeEnabled && (
-                        <span className="rounded bg-on-time/20 text-on-time px-1.5 py-0.5 text-[10px]" title={`Alerte temps: ${fav.notifications.timeMinutes} min`}>
-                          {fav.notifications.timeMinutes}min
+                      {fav.notifications.timeEnabled && fav.notifications.timeMinutes.map((m) => (
+                        <span key={m} className="rounded bg-on-time/20 text-on-time px-1.5 py-0.5 text-[10px]" title={`Alerte temps: ${m} min`}>
+                          {m}min
                         </span>
-                      )}
+                      ))}
                       {fav.notifications.distanceEnabled && (
                         <span className="rounded bg-slight-delay/20 text-slight-delay px-1.5 py-0.5 text-[10px]" title={`Alerte distance: ${fav.notifications.distanceMeters}m`}>
                           {fav.notifications.distanceMeters}m

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Bell, Clock, MapPin, AlertTriangle, X, Loader2 } from 'lucide-react'
+import { Bell, Clock, MapPin, AlertTriangle, X, Loader2, Plus } from 'lucide-react'
 import { useNotificationSettings } from '@/hooks/useNotificationSettings'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
 import { useFeatureFlags } from '@/hooks/useFeatureFlags'
@@ -21,7 +21,9 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
   const triggers = flags.allowedTriggerTypes
 
   const [timeEnabled, setTimeEnabled] = useState(false)
-  const [timeMinutes, setTimeMinutes] = useState(5)
+  const [timeMinutes, setTimeMinutes] = useState<number[]>([5])
+  const [addingTime, setAddingTime] = useState(false)
+  const [newTimeValue, setNewTimeValue] = useState(5)
   const [distanceEnabled, setDistanceEnabled] = useState(false)
   const [distanceMeters, setDistanceMeters] = useState(500)
   const [offrouteEnabled, setOffrouteEnabled] = useState(false)
@@ -152,23 +154,83 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
                 />
               </label>
               {timeEnabled && (
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs text-muted">
-                    <span>Notifier quand le bus arrive dans</span>
-                    <span className="font-semibold text-white">{timeMinutes} min</span>
+                <div className="space-y-2">
+                  <p className="text-xs text-muted">Notifier quand le bus arrive dans</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {timeMinutes
+                      .slice()
+                      .sort((a, b) => b - a)
+                      .map((m) => (
+                        <span
+                          key={m}
+                          className="inline-flex items-center gap-1 rounded-full bg-accent-cyan/20 text-accent-cyan px-2.5 py-1 text-xs font-semibold"
+                        >
+                          {m} min
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              stopProp(e)
+                              setTimeMinutes((prev) => prev.filter((v) => v !== m))
+                            }}
+                            className="ml-0.5 rounded-full hover:bg-accent-cyan/30 p-0.5"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    {timeMinutes.length < 5 && !addingTime && (
+                      <button
+                        type="button"
+                        onClick={(e) => { stopProp(e); setAddingTime(true) }}
+                        className="inline-flex items-center gap-1 rounded-full border border-dashed border-white/20 text-muted hover:text-white px-2.5 py-1 text-xs"
+                      >
+                        <Plus className="h-3 w-3" /> Ajouter
+                      </button>
+                    )}
                   </div>
-                  <input
-                    type="range"
-                    min={1}
-                    max={30}
-                    value={timeMinutes}
-                    onChange={(e) => setTimeMinutes(Number(e.target.value))}
-                    className="w-full accent-accent-cyan"
-                  />
-                  <div className="flex justify-between text-[10px] text-muted">
-                    <span>1 min</span>
-                    <span>30 min</span>
-                  </div>
+                  {addingTime && (
+                    <div className="space-y-1 rounded-lg border border-white/10 bg-card p-3">
+                      <div className="flex items-center justify-between text-xs text-muted">
+                        <span>Nouvelle alerte</span>
+                        <span className="font-semibold text-white">{newTimeValue} min</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={1}
+                        max={30}
+                        value={newTimeValue}
+                        onChange={(e) => setNewTimeValue(Number(e.target.value))}
+                        className="w-full accent-accent-cyan"
+                      />
+                      <div className="flex justify-between text-[10px] text-muted">
+                        <span>1 min</span>
+                        <span>30 min</span>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            stopProp(e)
+                            if (!timeMinutes.includes(newTimeValue)) {
+                              setTimeMinutes((prev) => [...prev, newTimeValue])
+                            }
+                            setAddingTime(false)
+                            setNewTimeValue(5)
+                          }}
+                          className="rounded bg-accent-cyan/20 text-accent-cyan px-3 py-1 text-xs font-medium hover:bg-accent-cyan/30"
+                        >
+                          Ajouter {newTimeValue} min
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { stopProp(e); setAddingTime(false) }}
+                          className="text-xs text-muted hover:text-white"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

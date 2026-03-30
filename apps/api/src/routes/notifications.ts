@@ -152,39 +152,43 @@ notificationsRouter.put('/settings/:favoriteId', requireAuth, async (c) => {
       }
     }
 
+    // Validate timeMinutes array
+    const timeMinutes: number[] = Array.isArray(body.timeMinutes) ? body.timeMinutes : [5]
+    if (timeMinutes.length > 5 || timeMinutes.some((m: number) => m < 1 || m > 30 || !Number.isInteger(m))) {
+      return c.json({ error: 'timeMinutes must be 1–5 integers between 1 and 30' }, 400)
+    }
+
     console.log(`[notifications] saving settings...`)
     // Check if settings already exist (avoid .upsert which crashes Bun)
     const { data: existing } = await supabase
       .from('notification_settings')
       .select('id')
       .eq('favorite_id', favoriteId)
+      .eq('user_id', userId)
       .maybeSingle()
+
+    const payload = {
+      time_enabled: body.timeEnabled ?? false,
+      time_minutes: timeMinutes,
+      distance_enabled: body.distanceEnabled ?? false,
+      distance_meters: body.distanceMeters ?? 500,
+      offroute_enabled: body.offrouteEnabled ?? false,
+      offroute_meters: body.offrouteMeters ?? 150,
+    }
 
     let error
     if (existing) {
       ;({ error } = await supabase
         .from('notification_settings')
-        .update({
-          time_enabled: body.timeEnabled ?? false,
-          time_minutes: body.timeMinutes ?? 5,
-          distance_enabled: body.distanceEnabled ?? false,
-          distance_meters: body.distanceMeters ?? 500,
-          offroute_enabled: body.offrouteEnabled ?? false,
-          offroute_meters: body.offrouteMeters ?? 150,
-        })
-        .eq('favorite_id', favoriteId))
+        .update(payload)
+        .eq('id', existing.id))
     } else {
       ;({ error } = await supabase
         .from('notification_settings')
         .insert({
           favorite_id: favoriteId,
           user_id: userId,
-          time_enabled: body.timeEnabled ?? false,
-          time_minutes: body.timeMinutes ?? 5,
-          distance_enabled: body.distanceEnabled ?? false,
-          distance_meters: body.distanceMeters ?? 500,
-          offroute_enabled: body.offrouteEnabled ?? false,
-          offroute_meters: body.offrouteMeters ?? 150,
+          ...payload,
         }))
     }
 
