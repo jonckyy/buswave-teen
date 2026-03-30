@@ -8,6 +8,7 @@ import { alertsRouter } from './routes/alerts.js'
 import { notificationsRouter } from './routes/notifications.js'
 import { adminRouter } from './routes/admin.js'
 import { startNotificationScheduler } from './lib/notification-scheduler.js'
+import { startPositionRecorder } from './lib/position-recorder.js'
 
 const app = new Hono()
 
@@ -55,6 +56,13 @@ try {
   startNotificationScheduler()
 } catch (err) {
   console.error('[startup] Scheduler failed to start:', err)
+}
+
+// Start the position recorder (10s interval, selected lines only)
+try {
+  startPositionRecorder()
+} catch (err) {
+  console.error('[startup] Position recorder failed to start:', err)
 }
 
 const port = Number(process.env['PORT'] ?? 3001)
