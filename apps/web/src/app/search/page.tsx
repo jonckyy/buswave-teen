@@ -36,10 +36,17 @@ function NearbyStopCard({ stop, activeRouteIds }: { stop: GtfsStop; activeRouteI
         <div className="flex items-center gap-3 min-w-0">
           <MapPin className="h-4 w-4 text-accent-cyan shrink-0" />
           <div className="min-w-0">
-            <p className="text-sm font-medium text-white truncate">{stop.stop_name}</p>
+            <p className="text-sm font-medium text-white truncate">
+              {stop.stop_name}
+              {routes.length > 0 && (
+                <span className="text-muted font-normal">
+                  {' '}→ {[...new Set(routes.map((r) => r.route_long_name || r.headsign).filter(Boolean))].join(', ')}
+                </span>
+              )}
+            </p>
             {routes.length > 0 ? (
               <p className="text-xs text-muted truncate">
-                {routes.map((r) => `${r.route_short_name} → ${r.route_long_name || r.headsign}`).join(' · ')}
+                {[...new Set(routes.map((r) => r.route_short_name))].join(', ')}
               </p>
             ) : stop.stop_code ? (
               <p className="text-xs text-muted">Code {stop.stop_code}</p>
