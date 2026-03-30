@@ -68,7 +68,7 @@ export function BusCard({ stopId, routeId }: BusCardProps) {
 
   const mapParams = new URLSearchParams({ stopId })
   if (routeId) mapParams.set('routeId', routeId)
-  const mapHref = `/map?${mapParams.toString()}`
+  const mapHref = `/favorite-map?${mapParams.toString()}`
 
   const { data: stopData } = useQuery({
     queryKey: ['stop', stopId],
@@ -97,9 +97,11 @@ export function BusCard({ stopId, routeId }: BusCardProps) {
             <p className="font-semibold text-white leading-tight truncate">
               {stopData?.stop_name ?? stopId}
             </p>
-            {routeId && (
+            {next3[0]?.headsign ? (
+              <p className="text-xs text-muted">→ {next3[0].headsign}</p>
+            ) : routeId ? (
               <p className="text-xs text-muted">Ligne {routeId}</p>
-            )}
+            ) : null}
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
