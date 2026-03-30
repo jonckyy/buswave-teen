@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { api } from '@/lib/api'
 import { useUser } from '@/hooks/useUser'
 import { createSupabaseClient } from '@/lib/supabase'
-import { ROLE_LABELS } from '@buswave/shared'
+import { ROLE_LABELS, MAP_TILE_OPTIONS } from '@buswave/shared'
 import type { RoleConfig, RoleConfigUpdate, AdminUserRow, AdminUserDetail, UserRole, Theme } from '@buswave/shared'
 
 export default function AdminPage() {
@@ -422,6 +422,7 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
 
   // Local state mirrors config
   const [themeId, setThemeId] = useState('midnight')
+  const [mapTileStyle, setMapTileStyle] = useState('osm-standard')
   const [maxFavorites, setMaxFavorites] = useState(0)
   const [maxPushFavorites, setMaxPushFavorites] = useState(0)
   const [maxPushNotifications, setMaxPushNotifications] = useState(0)
@@ -440,6 +441,7 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
   useEffect(() => {
     if (!config) return
     setThemeId(config.themeId ?? 'midnight')
+    setMapTileStyle(config.mapTileStyle ?? 'osm-standard')
     setMaxFavorites(config.maxFavorites)
     setMaxPushFavorites(config.maxPushFavorites)
     setMaxPushNotifications(config.maxPushNotifications)
@@ -469,6 +471,7 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
 
       const update: RoleConfigUpdate = {
         themeId,
+        mapTileStyle,
         maxFavorites,
         maxPushFavorites,
         maxPushNotifications,
@@ -526,6 +529,22 @@ function RoleConfigSection({ role }: { role: 'editor' | 'user' }) {
         >
           {themes.map((t: Theme) => (
             <option key={t.id} value={t.id}>{t.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Map tile style */}
+      <div className="mb-5">
+        <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">
+          <span className="inline-flex items-center gap-1.5">Style de carte</span>
+        </h3>
+        <select
+          value={mapTileStyle}
+          onChange={(e) => setMapTileStyle(e.target.value)}
+          className="appearance-none bg-background border border-white/10 rounded-lg px-3 py-2 text-sm text-white cursor-pointer w-full sm:w-auto"
+        >
+          {MAP_TILE_OPTIONS.map((t) => (
+            <option key={t.key} value={t.key}>{t.label}{t.dark ? ' (sombre)' : ''}</option>
           ))}
         </select>
       </div>

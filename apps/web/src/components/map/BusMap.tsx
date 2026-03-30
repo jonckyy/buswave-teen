@@ -9,6 +9,8 @@ import { api } from '@/lib/api'
 import { cn, delayColor, haversineKm, shapeDistanceKm } from '@/lib/utils'
 import { useFavoritesStore, selectFavoriteIds } from '@/store/favorites'
 import { useFavoritesActions } from '@/hooks/useFavoritesActions'
+import { getTileUrl, isTileDark } from '@buswave/shared'
+import { useFeatureFlags } from '@/hooks/useFeatureFlags'
 import type { VehicleDetails, VehiclePosition, GtfsStop } from '@buswave/shared'
 
 // Fix Leaflet default icon in Next.js
@@ -27,40 +29,55 @@ function bearingToCompass(deg: number): string {
   return dirs[Math.round(deg / 45) % 8]
 }
 
-const DIR_COLORS: Record<string, string> = {
+const DIR_COLORS_DARK: Record<string, string> = {
   '0': '#00E676',   // green  — direction 0
   '1': '#A78BFA',   // purple — direction 1
   'both': '#8892B0', // muted  — shared stop
 }
 
-function busIcon(bearing?: number, selected = false, dirColor = '#00E676') {
+const DIR_COLORS_LIGHT: Record<string, string> = {
+  '0': '#00913D',   // darker green for light bg
+  '1': '#6D28D9',   // darker purple for light bg
+  'both': '#64748B', // muted  — shared stop
+}
+
+function getDirColors(dark: boolean) {
+  return dark ? DIR_COLORS_DARK : DIR_COLORS_LIGHT
+}
+
+function busIcon(bearing?: number, selected = false, dirColor = '#00E676', dark = true) {
   const color = selected ? '#FF9100' : dirColor
   const glow = selected ? 'rgba(255,145,0,0.5)' : `${dirColor}55`
   const rotation = bearing ?? 0
+  const windowFill = dark ? 'rgba(10,14,23,0.45)' : 'rgba(255,255,255,0.6)'
+  const wheelFill = dark ? 'rgba(10,14,23,0.55)' : 'rgba(255,255,255,0.7)'
   return L.divIcon({
     className: '',
     html: `<svg width="22" height="28" viewBox="0 0 22 28" xmlns="http://www.w3.org/2000/svg"
       style="transform:rotate(${rotation}deg);filter:drop-shadow(0 2px 5px ${glow});overflow:visible;display:block">
       <polygon points="11,0 18,9 4,9" fill="${color}"/>
       <rect x="2" y="8" width="18" height="16" rx="3" fill="${color}"/>
-      <rect x="4" y="10" width="14" height="6" rx="1.5" fill="rgba(10,14,23,0.45)"/>
-      <circle cx="7" cy="24" r="2.5" fill="rgba(10,14,23,0.55)"/>
-      <circle cx="15" cy="24" r="2.5" fill="rgba(10,14,23,0.55)"/>
+      <rect x="4" y="10" width="14" height="6" rx="1.5" fill="${windowFill}"/>
+      <circle cx="7" cy="24" r="2.5" fill="${wheelFill}"/>
+      <circle cx="15" cy="24" r="2.5" fill="${wheelFill}"/>
     </svg>`,
     iconSize: [22, 28],
     iconAnchor: [11, 14],
   })
 }
 
-function stopMarkerIcon(color: string, selected = false) {
-  const bg = selected ? '#FFFFFF' : color
-  const shadow = selected ? '0 0 6px rgba(255,255,255,0.7)' : '0 1px 4px rgba(0,0,0,0.4)'
+function stopMarkerIcon(color: string, selected = false, dark = true) {
+  const bg = selected ? (dark ? '#FFFFFF' : '#000000') : color
+  const borderColor = dark ? '#0A0E17' : '#FFFFFF'
+  const shadow = selected
+    ? (dark ? '0 0 6px rgba(255,255,255,0.7)' : '0 0 6px rgba(0,0,0,0.4)')
+    : '0 1px 4px rgba(0,0,0,0.4)'
   return L.divIcon({
     className: '',
     html: `<div style="
       width:10px;height:10px;
       background:${bg};
-      border:1.5px solid #0A0E17;
+      border:1.5px solid ${borderColor};
       border-radius:2px;
       box-shadow:${shadow};
     "></div>`,
@@ -395,6 +412,10 @@ interface BusMapProps {
 }
 
 export function BusMap({ routeId, height = 480, onRouteFilter, initialStopId }: BusMapProps) {
+  const flags = useFeatureFlags()
+  const isDark = isTileDark(flags.mapTileStyle)
+  const dirColors = getDirColors(isDark)
+
   const [selectedVehicle, setSelectedVehicle] = useState<VehiclePosition | null>(null)
   const [selectedStop, setSelectedStop] = useState<GtfsStop | null>(null)
   const hasAutoSelected = useRef(false)
@@ -514,12 +535,12 @@ export function BusMap({ routeId, height = 480, onRouteFilter, initialStopId }: 
       <MapContainer
         center={[50.4, 4.5]}
         zoom={9}
-        style={{ height: '100%', width: '100%', background: '#0A0E17' }}
+        style={{ height: '100%', width: '100%', background: isDark ? '#0A0E17' : '#F2F2F2' }}
         zoomControl
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url={getTileUrl(flags.mapTileStyle)}
         />
 
         {/* Route polylines — one per direction, colored to match stop markers */}
@@ -527,9 +548,9 @@ export function BusMap({ routeId, height = 480, onRouteFilter, initialStopId }: 
           <Polyline
             key={i}
             positions={seg.map((p) => [p.lat, p.lon] as [number, number])}
-            color={DIR_COLORS[String(i)] ?? '#00D4FF'}
+            color={dirColors[String(i)] ?? '#00D4FF'}
             weight={3}
-            opacity={0.7}
+            opacity={isDark ? 0.7 : 0.85}
           />
         ))}
 
@@ -538,7 +559,7 @@ export function BusMap({ routeId, height = 480, onRouteFilter, initialStopId }: 
           <Marker
             key={stop.stop_id}
             position={[stop.stop_lat, stop.stop_lon]}
-            icon={stopMarkerIcon(DIR_COLORS[dirKey] ?? '#8892B0', selectedStop?.stop_id === stop.stop_id)}
+            icon={stopMarkerIcon(dirColors[dirKey] ?? '#8892B0', selectedStop?.stop_id === stop.stop_id, isDark)}
             eventHandlers={{ click: () => handleStopClick(stop) }}
           />
         ))}
@@ -546,12 +567,12 @@ export function BusMap({ routeId, height = 480, onRouteFilter, initialStopId }: 
         {/* Bus markers — colored by direction when route filter is active */}
         {vehicles.map((v) => {
           const dirKey = v.stopId ? stopDirMap.get(v.stopId) : undefined
-          const dirColor = DIR_COLORS[dirKey ?? ''] ?? '#00D4FF'
+          const dirColor = dirColors[dirKey ?? ''] ?? '#00D4FF'
           return (
             <Marker
               key={v.vehicleId}
               position={[v.lat, v.lon]}
-              icon={busIcon(v.bearing, selectedVehicle?.vehicleId === v.vehicleId, dirColor)}
+              icon={busIcon(v.bearing, selectedVehicle?.vehicleId === v.vehicleId, dirColor, isDark)}
               eventHandlers={{ click: () => handleBusClick(v) }}
             />
           )
@@ -590,7 +611,7 @@ export function BusMap({ routeId, height = 480, onRouteFilter, initialStopId }: 
         <div className="absolute bottom-3 left-3 z-[1000] flex flex-col gap-1 rounded-lg bg-background/80 backdrop-blur px-3 py-2 text-xs">
           {stopsQuery.data.map((dir) => (
             <div key={dir.directionId} className="flex items-center gap-2">
-              <span className="inline-block w-2.5 h-2.5 rounded-sm border border-background" style={{ background: DIR_COLORS[String(dir.directionId)] ?? '#8892B0' }} />
+              <span className="inline-block w-2.5 h-2.5 rounded-sm border border-background" style={{ background: dirColors[String(dir.directionId)] ?? '#8892B0' }} />
               <span className="text-muted truncate max-w-[160px]">→ {dir.headsign}</span>
             </div>
           ))}

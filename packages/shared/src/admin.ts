@@ -24,6 +24,7 @@ export interface RoleConfig {
   arrivalsPerCard: number
   allowedTriggerTypes: string[]
   themeId: string
+  mapTileStyle: string
   updatedAt: string
 }
 
@@ -117,6 +118,7 @@ export const DEFAULT_ROLE_CONFIG: Record<UserRole, RoleConfig> = {
     arrivalsPerCard: 10,
     allowedTriggerTypes: ['time', 'distance', 'offroute'],
     themeId: 'midnight',
+    mapTileStyle: 'osm-standard',
     updatedAt: '',
   },
   editor: {
@@ -133,6 +135,7 @@ export const DEFAULT_ROLE_CONFIG: Record<UserRole, RoleConfig> = {
     arrivalsPerCard: 5,
     allowedTriggerTypes: ['time', 'distance', 'offroute'],
     themeId: 'midnight',
+    mapTileStyle: 'osm-standard',
     updatedAt: '',
   },
   user: {
@@ -149,6 +152,7 @@ export const DEFAULT_ROLE_CONFIG: Record<UserRole, RoleConfig> = {
     arrivalsPerCard: 3,
     allowedTriggerTypes: ['time'],
     themeId: 'midnight',
+    mapTileStyle: 'osm-standard',
     updatedAt: '',
   },
 }

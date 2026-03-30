@@ -22,6 +22,7 @@ function toRoleConfig(row: Record<string, unknown>): RoleConfig {
     arrivalsPerCard: row.arrivals_per_card as number,
     allowedTriggerTypes: row.allowed_trigger_types as string[],
     themeId: (row.theme_id as string) ?? 'midnight',
+    mapTileStyle: (row.map_tile_style as string) ?? 'osm-standard',
     updatedAt: row.updated_at as string,
   }
 }
@@ -66,6 +67,7 @@ adminRouter.put('/role-config/:role', requireAdmin, async (c) => {
   if (body.arrivalsPerCard !== undefined) update.arrivals_per_card = body.arrivalsPerCard
   if (body.allowedTriggerTypes !== undefined) update.allowed_trigger_types = body.allowedTriggerTypes
   if (body.themeId !== undefined) update.theme_id = body.themeId
+  if (body.mapTileStyle !== undefined) update.map_tile_style = body.mapTileStyle
 
   if (Object.keys(update).length === 0) {
     return c.json({ error: 'No fields to update' }, 400)
