@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { getTileUrl, isTileDark } from '@buswave/shared'
@@ -14,36 +14,52 @@ interface Props {
   tileStyle: string
 }
 
-/** Auto-fit the map to show the stop, next bus, and route segment */
-function AutoFit({ stop, nextBus, routeLive }: { stop: GtfsStop | null; nextBus: VehiclePosition | null; routeLive: RouteWithLiveVehicles | null }) {
+/** Find the index of the closest point on a polyline to a given lat/lon */
+function closestIndex(seg: Array<{ lat: number; lon: number }>, lat: number, lon: number): number {
+  let best = 0
+  let bestDist = Infinity
+  for (let i = 0; i < seg.length; i++) {
+    const dx = seg[i].lat - lat
+    const dy = seg[i].lon - lon
+    const d = dx * dx + dy * dy
+    if (d < bestDist) { bestDist = d; best = i }
+  }
+  return best
+}
+
+/** Trim a polyline segment to only show points between a bus and a stop */
+function trimSegment(
+  seg: Array<{ lat: number; lon: number }>,
+  bus: VehiclePosition | null,
+  stop: GtfsStop | null
+): Array<{ lat: number; lon: number }> {
+  if (!bus || !stop || seg.length === 0) return seg
+
+  const busIdx = closestIndex(seg, bus.lat, bus.lon)
+  const stopIdx = closestIndex(seg, stop.stop_lat, stop.stop_lon)
+
+  const from = Math.min(busIdx, stopIdx)
+  const to = Math.max(busIdx, stopIdx)
+
+  return seg.slice(from, to + 1)
+}
+
+/** Auto-fit the map to show the trimmed route segment */
+function AutoFit({ positions }: { positions: [number, number][] }) {
   const map = useMap()
   const hasFit = useRef(false)
 
   useEffect(() => {
-    if (hasFit.current) return
-    const points: [number, number][] = []
+    if (hasFit.current || positions.length === 0) return
+    hasFit.current = true
 
-    if (stop) points.push([stop.stop_lat, stop.stop_lon])
-    if (nextBus) points.push([nextBus.lat, nextBus.lon])
-
-    // Add shape points between bus and stop for a fuller view
-    if (routeLive?.shapeSegments?.length) {
-      for (const seg of routeLive.shapeSegments) {
-        for (const p of seg) {
-          points.push([p.lat, p.lon])
-        }
-      }
+    if (positions.length >= 2) {
+      const bounds = L.latLngBounds(positions)
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 })
+    } else {
+      map.setView(positions[0], 15)
     }
-
-    if (points.length >= 2) {
-      hasFit.current = true
-      const bounds = L.latLngBounds(points)
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 })
-    } else if (points.length === 1) {
-      hasFit.current = true
-      map.setView(points[0], 15)
-    }
-  }, [map, stop, nextBus, routeLive])
+  }, [map, positions])
 
   return null
 }
@@ -52,10 +68,38 @@ export default function FavoriteMapView({ stop, nextBus, routeLive, tileStyle }:
   const isDark = isTileDark(tileStyle)
   const dirColors = getDirColors(isDark)
 
-  // Determine which direction this stop is on (use bus direction or default 0)
-  const busDir = nextBus?.tripId && routeLive?.vehicles
-    ? routeLive.vehicles.find((v) => v.tripId === nextBus.tripId)
-    : nextBus
+  // Find the best matching shape segment and trim it between bus and stop
+  const trimmedSegment = useMemo(() => {
+    if (!routeLive?.shapeSegments?.length) return null
+
+    // Pick the segment closest to the bus (if we have one) or the stop
+    let bestSeg = routeLive.shapeSegments[0]
+    if (nextBus && routeLive.shapeSegments.length > 1) {
+      let bestDist = Infinity
+      for (const seg of routeLive.shapeSegments) {
+        const idx = closestIndex(seg, nextBus.lat, nextBus.lon)
+        const dx = seg[idx].lat - nextBus.lat
+        const dy = seg[idx].lon - nextBus.lon
+        const d = dx * dx + dy * dy
+        if (d < bestDist) { bestDist = d; bestSeg = seg }
+      }
+    }
+
+    return trimSegment(bestSeg, nextBus, stop)
+  }, [routeLive, nextBus, stop])
+
+  const polyPositions = useMemo<[number, number][]>(() => {
+    if (!trimmedSegment) return []
+    return trimmedSegment.map((p) => [p.lat, p.lon] as [number, number])
+  }, [trimmedSegment])
+
+  // Points for auto-fit: bus + stop + trimmed route
+  const fitPositions = useMemo<[number, number][]>(() => {
+    const pts: [number, number][] = [...polyPositions]
+    if (stop) pts.push([stop.stop_lat, stop.stop_lon])
+    if (nextBus) pts.push([nextBus.lat, nextBus.lon])
+    return pts
+  }, [polyPositions, stop, nextBus])
 
   return (
     <MapContainer
@@ -69,18 +113,17 @@ export default function FavoriteMapView({ stop, nextBus, routeLive, tileStyle }:
         url={getTileUrl(tileStyle)}
       />
 
-      <AutoFit stop={stop} nextBus={nextBus} routeLive={routeLive} />
+      <AutoFit positions={fitPositions} />
 
-      {/* Route polylines */}
-      {routeLive?.shapeSegments?.map((seg, i) => (
+      {/* Trimmed route polyline (bus → stop only) */}
+      {polyPositions.length > 1 && (
         <Polyline
-          key={i}
-          positions={seg.map((p) => [p.lat, p.lon] as [number, number])}
-          color={dirColors[String(i)] ?? '#00D4FF'}
+          positions={polyPositions}
+          color={dirColors['0'] ?? '#00D4FF'}
           weight={4}
           opacity={isDark ? 0.7 : 0.85}
         />
-      ))}
+      )}
 
       {/* Stop marker */}
       {stop && (
