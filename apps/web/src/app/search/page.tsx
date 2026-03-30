@@ -40,7 +40,7 @@ function NearbyStopCard({ stop, activeRouteIds }: { stop: GtfsStop; activeRouteI
               {stop.stop_name}
               {routes.length > 0 && (
                 <span className="text-muted font-normal">
-                  {' '}→ {[...new Set(routes.map((r) => r.route_long_name || r.headsign).filter(Boolean))].join(', ')}
+                  {' '}→ {[...new Set(routes.map((r) => r.headsign || r.route_long_name).filter(Boolean))].join(', ')}
                 </span>
               )}
             </p>

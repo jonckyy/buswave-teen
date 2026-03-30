@@ -396,17 +396,17 @@ stopsRouter.get('/search', async (c) => {
 stopsRouter.get('/:stopId/routes', async (c) => {
   const stopId = c.req.param('stopId')
 
-  // Fetch a sample of trips serving this stop with nested route info
+  // Fetch a sample of trips serving this stop with nested route info + trip_id for headsign fallback
   const { data, error } = await supabase
     .from('stop_times')
-    .select('trips!inner(route_id, direction_id, trip_headsign, routes!inner(route_short_name, route_long_name))')
+    .select('trip_id, trips!inner(route_id, direction_id, trip_headsign, routes!inner(route_short_name, route_long_name))')
     .eq('stop_id', stopId)
     .limit(300)
 
   if (error || !data) return c.json({ data: [] } satisfies ApiResponse<StopRoute[]>)
 
-  // One entry per route_short_name — direction is not relevant here (favorites track stop+line, not direction)
-  const seen = new Map<string, StopRoute>()
+  // One entry per route_short_name — keep trip_id for headsign fallback
+  const seen = new Map<string, StopRoute & { tripId?: string }>()
   for (const row of data) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const t = (row as any).trips
@@ -422,13 +422,42 @@ stopsRouter.get('/:stopId/routes', async (c) => {
         route_long_name: r.route_long_name ?? '',
         direction_id: t.direction_id ?? 0,
         headsign: t.trip_headsign ?? '',
+        tripId: (row as any).trip_id,
       })
     }
   }
 
-  const routes = [...seen.values()].sort((a, b) =>
-    a.route_short_name.localeCompare(b.route_short_name, undefined, { numeric: true })
-  )
+  // Fallback: for routes with empty headsign, resolve last stop name from the trip
+  const needHeadsign = [...seen.values()].filter((r) => !r.headsign && r.tripId)
+  if (needHeadsign.length > 0) {
+    const tripIds = needHeadsign.map((r) => r.tripId!)
+    const { data: stData } = await supabase
+      .from('stop_times')
+      .select('trip_id, stop_sequence, stops!inner(stop_name)')
+      .in('trip_id', tripIds)
+      .order('stop_sequence', { ascending: false })
+      .limit(tripIds.length * 2)
+
+    if (stData) {
+      const lastStopMap = new Map<string, string>()
+      for (const row of stData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const r = row as any
+        if (!lastStopMap.has(r.trip_id) && r.stops?.stop_name) {
+          lastStopMap.set(r.trip_id, r.stops.stop_name)
+        }
+      }
+      for (const route of needHeadsign) {
+        route.headsign = lastStopMap.get(route.tripId!) ?? ''
+      }
+    }
+  }
+
+  const routes = [...seen.values()]
+    .map(({ tripId: _, ...rest }) => rest)
+    .sort((a, b) =>
+      a.route_short_name.localeCompare(b.route_short_name, undefined, { numeric: true })
+    )
 
   return c.json({ data: routes } satisfies ApiResponse<StopRoute[]>)
 })
