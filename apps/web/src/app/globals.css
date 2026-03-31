@@ -44,6 +44,16 @@ body {
   background: rgb(var(--background));
 }
 
+/* Animated dashed polyline — flows in the direction of the route */
+.animated-dash {
+  animation: dash-flow 1.2s linear infinite;
+}
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
 /* ─── Theme: Aurora ─── Gradient mesh / Northern lights ─────────────── */
 
 [data-theme="aurora"] .theme-card {

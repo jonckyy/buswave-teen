@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { getTileUrl, isTileDark } from '@buswave/shared'
@@ -64,6 +64,98 @@ function AutoFit({ positions }: { positions: [number, number][] }) {
   return null
 }
 
+/** Animated dashed polyline that flows in the direction of the bus */
+function AnimatedRoute({ positions, color, isDark }: { positions: [number, number][]; color: string; isDark: boolean }) {
+  const map = useMap()
+  const polyRef = useRef<L.Polyline | null>(null)
+
+  useEffect(() => {
+    if (positions.length < 2) return
+
+    // Solid background line
+    const bgLine = L.polyline(positions, {
+      color,
+      weight: 4,
+      opacity: isDark ? 0.3 : 0.25,
+    }).addTo(map)
+
+    // Animated dashed line on top
+    const dashLine = L.polyline(positions, {
+      color,
+      weight: 4,
+      opacity: isDark ? 0.8 : 0.9,
+      dashArray: '12 8',
+      className: 'animated-dash',
+    }).addTo(map)
+
+    polyRef.current = dashLine
+
+    return () => {
+      map.removeLayer(bgLine)
+      map.removeLayer(dashLine)
+    }
+  }, [map, positions, color, isDark])
+
+  return null
+}
+
+/** Bus marker that smoothly animates to new positions */
+function AnimatedBusMarker({ bus, isDark }: { bus: VehiclePosition; isDark: boolean }) {
+  const markerRef = useRef<L.Marker | null>(null)
+  const [displayPos, setDisplayPos] = useState<[number, number]>([bus.lat, bus.lon])
+  const animFrame = useRef<number>(0)
+
+  useEffect(() => {
+    const targetLat = bus.lat
+    const targetLon = bus.lon
+    const startLat = displayPos[0]
+    const startLon = displayPos[1]
+
+    // Skip animation if first render or distance is tiny
+    const dist = Math.abs(targetLat - startLat) + Math.abs(targetLon - startLon)
+    if (dist < 0.000001) return
+
+    const duration = 3000 // 3 seconds
+    const startTime = performance.now()
+
+    function animate(now: number) {
+      const elapsed = now - startTime
+      const t = Math.min(elapsed / duration, 1)
+      // Ease out cubic
+      const ease = 1 - Math.pow(1 - t, 3)
+
+      const lat = startLat + (targetLat - startLat) * ease
+      const lon = startLon + (targetLon - startLon) * ease
+
+      setDisplayPos([lat, lon])
+
+      if (markerRef.current) {
+        markerRef.current.setLatLng([lat, lon])
+      }
+
+      if (t < 1) {
+        animFrame.current = requestAnimationFrame(animate)
+      }
+    }
+
+    animFrame.current = requestAnimationFrame(animate)
+
+    return () => {
+      if (animFrame.current) cancelAnimationFrame(animFrame.current)
+    }
+    // Only trigger animation when bus position changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bus.lat, bus.lon])
+
+  return (
+    <Marker
+      ref={markerRef}
+      position={displayPos}
+      icon={busIcon(bus.bearing, true, '#FF9100', isDark)}
+    />
+  )
+}
+
 export default function FavoriteMapView({ stop, nextBus, routeLive, tileStyle }: Props) {
   const isDark = isTileDark(tileStyle)
   const dirColors = getDirColors(isDark)
@@ -72,7 +164,6 @@ export default function FavoriteMapView({ stop, nextBus, routeLive, tileStyle }:
   const trimmedSegment = useMemo(() => {
     if (!routeLive?.shapeSegments?.length) return null
 
-    // Pick the segment closest to the bus (if we have one) or the stop
     let bestSeg = routeLive.shapeSegments[0]
     if (nextBus && routeLive.shapeSegments.length > 1) {
       let bestDist = Infinity
@@ -93,13 +184,14 @@ export default function FavoriteMapView({ stop, nextBus, routeLive, tileStyle }:
     return trimmedSegment.map((p) => [p.lat, p.lon] as [number, number])
   }, [trimmedSegment])
 
-  // Points for auto-fit: bus + stop + trimmed route
   const fitPositions = useMemo<[number, number][]>(() => {
     const pts: [number, number][] = [...polyPositions]
     if (stop) pts.push([stop.stop_lat, stop.stop_lon])
     if (nextBus) pts.push([nextBus.lat, nextBus.lon])
     return pts
   }, [polyPositions, stop, nextBus])
+
+  const routeColor = dirColors['0'] ?? '#00D4FF'
 
   return (
     <MapContainer
@@ -115,30 +207,22 @@ export default function FavoriteMapView({ stop, nextBus, routeLive, tileStyle }:
 
       <AutoFit positions={fitPositions} />
 
-      {/* Trimmed route polyline (bus → stop only) */}
+      {/* Animated dashed route polyline */}
       {polyPositions.length > 1 && (
-        <Polyline
-          positions={polyPositions}
-          color={dirColors['0'] ?? '#00D4FF'}
-          weight={4}
-          opacity={isDark ? 0.7 : 0.85}
-        />
+        <AnimatedRoute positions={polyPositions} color={routeColor} isDark={isDark} />
       )}
 
       {/* Stop marker */}
       {stop && (
         <Marker
           position={[stop.stop_lat, stop.stop_lon]}
-          icon={stopMarkerIcon(dirColors['0'] ?? '#00D4FF', true, isDark)}
+          icon={stopMarkerIcon(routeColor, true, isDark)}
         />
       )}
 
-      {/* Next bus marker */}
+      {/* Animated bus marker */}
       {nextBus && (
-        <Marker
-          position={[nextBus.lat, nextBus.lon]}
-          icon={busIcon(nextBus.bearing, true, '#FF9100', isDark)}
-        />
+        <AnimatedBusMarker bus={nextBus} isDark={isDark} />
       )}
     </MapContainer>
   )
