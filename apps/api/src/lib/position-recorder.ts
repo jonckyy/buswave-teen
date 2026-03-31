@@ -18,6 +18,8 @@ const RETENTION_DAYS = 7
 
 // Cache: route_id → route_short_name
 let routeMap: Map<string, string> | null = null
+// Cache: trip_id → direction_id
+let directionMap: Map<string, number> | null = null
 
 async function loadRouteMap(): Promise<Map<string, string>> {
   if (routeMap) return routeMap
@@ -39,12 +41,33 @@ async function loadRouteMap(): Promise<Map<string, string>> {
   return routeMap
 }
 
+async function loadDirectionMap(): Promise<Map<string, number>> {
+  if (directionMap) return directionMap
+
+  const { data } = await supabase
+    .from('trips')
+    .select('trip_id, direction_id')
+
+  directionMap = new Map()
+  for (const row of data ?? []) {
+    const r = row as { trip_id: string; direction_id: number }
+    directionMap.set(r.trip_id, r.direction_id)
+  }
+  console.log(`[recorder] Loaded ${directionMap.size} trip directions`)
+
+  // Refresh every 24h
+  setTimeout(() => { directionMap = null }, 86_400_000)
+
+  return directionMap
+}
+
 async function recordTick() {
   try {
-    const [vehicleFeed, tripFeed, routes] = await Promise.all([
+    const [vehicleFeed, tripFeed, routes, directions] = await Promise.all([
       getVehiclePositions(),
       getTripUpdates(),
       loadRouteMap(),
+      loadDirectionMap(),
     ])
 
     // Build delay map from trip updates: tripId → delay in seconds
@@ -68,18 +91,24 @@ async function recordTick() {
       const routeShort = routes.get(v.trip.routeId)
       if (!routeShort || !TARGET_LINES.has(routeShort)) continue
 
+      const tripId = v.trip.tripId ?? ''
       rows.push({
         vehicle_id: String(v.vehicle?.id ?? entity.id),
         route_id: v.trip.routeId,
         route_short: routeShort,
-        trip_id: v.trip.tripId ?? '',
+        trip_id: tripId,
         lat: v.position.latitude,
         lon: v.position.longitude,
         bearing: v.position.bearing != null ? Math.round(v.position.bearing) : null,
         speed: v.position.speed != null ? Math.round(v.position.speed) : null,
-        delay_seconds: delayMap.get(v.trip.tripId ?? '') ?? null,
+        delay_seconds: delayMap.get(tripId) ?? null,
         stop_id: v.stopId ?? null,
         stop_sequence: v.currentStopSequence ?? null,
+        vehicle_timestamp: v.timestamp != null ? Number(v.timestamp) : null,
+        direction_id: directions.get(tripId) ?? null,
+        schedule_relationship: v.trip.scheduleRelationship ?? null,
+        congestion_level: v.congestionLevel ?? null,
+        occupancy_status: v.occupancyStatus ?? null,
       })
     }
 
