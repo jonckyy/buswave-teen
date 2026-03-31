@@ -246,7 +246,7 @@ export default function AnalyticsPage() {
               <Tooltip
                 contentStyle={{ background: '#131A2B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }}
                 labelStyle={{ color: '#fff' }}
-                formatter={(value: number) => [`${formatDelay(value)}`, '']}
+                formatter={(value) => [`${formatDelay(Number(value))}`, '']}
               />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               {uniqueVehicles.map((vid, i) => (
