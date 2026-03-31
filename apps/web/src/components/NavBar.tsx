@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { AlertTriangle, Bus, LogIn, LogOut, Map, Search, Settings, Shield, Star, User } from 'lucide-react'
+import { AlertTriangle, BarChart3, Bus, LogIn, LogOut, Map, Search, Settings, Shield, Star, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUser } from '@/hooks/useUser'
 import { useFeatureFlags } from '@/hooks/useFeatureFlags'
@@ -18,6 +18,7 @@ export function NavBar() {
     { href: '/map', label: 'Carte', icon: Map },
     ...(flags.showAlertsPage ? [{ href: '/alerts', label: 'Alertes', icon: AlertTriangle }] : []),
     ...(flags.showLivePage ? [{ href: '/live', label: 'Live', icon: Bus }] : []),
+    ...(isAdmin ? [{ href: '/analytics', label: 'Analytics', icon: BarChart3 }] : []),
     ...(isAdmin ? [{ href: '/admin', label: 'Admin', icon: Shield }] : []),
   ]
 

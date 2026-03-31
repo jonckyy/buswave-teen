@@ -186,6 +186,13 @@ export const api = {
       token,
     }),
 
+  // ── Analytics ──────────────────────────────────────────────────────────────
+  getAnalytics: (params: { route_short: string; from: string; to: string; vehicle_id?: string }, token: string) => {
+    const qs = new URLSearchParams({ route_short: params.route_short, from: params.from, to: params.to })
+    if (params.vehicle_id) qs.set('vehicle_id', params.vehicle_id)
+    return authFetch<Record<string, unknown>[]>(`/api/admin/analytics?${qs.toString()}`, { method: 'GET', token })
+  },
+
   // ── Themes ────────────────────────────────────────────────────────────────
   getThemes: () =>
     apiFetch<Theme[]>('/api/admin/themes'),

@@ -417,3 +417,37 @@ adminRouter.put('/users/:userId/role', requireAdmin, async (c) => {
 
   return c.json({ data: { ok: true } })
 })
+
+/** GET /admin/analytics — query vehicle_positions_log with filters */
+adminRouter.get('/analytics', requireAdmin, async (c) => {
+  const routeShort = c.req.query('route_short')
+  const from = c.req.query('from')
+  const to = c.req.query('to')
+  const vehicleId = c.req.query('vehicle_id')
+
+  if (!routeShort || !from || !to) {
+    return c.json({ error: 'route_short, from, and to are required' }, 400)
+  }
+
+  let query = supabase
+    .from('vehicle_positions_log')
+    .select('*')
+    .eq('route_short', routeShort)
+    .gte('recorded_at', from)
+    .lte('recorded_at', to)
+    .order('recorded_at', { ascending: true })
+    .limit(10000)
+
+  if (vehicleId) {
+    query = query.eq('vehicle_id', vehicleId)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error('[admin] analytics query error:', error.message)
+    return c.json({ error: `Query failed: ${error.message}` }, 500)
+  }
+
+  return c.json({ data: data ?? [] })
+})
