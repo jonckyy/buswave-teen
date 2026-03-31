@@ -24,7 +24,8 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
 
 async function proxy(req: NextRequest, path: string[]) {
   const subPath = path.join('/')
-  const url = `${API_BASE}/api/admin/${subPath}`
+  const search = new URL(req.url).search
+  const url = `${API_BASE}/api/admin/${subPath}${search}`
 
   const headers: Record<string, string> = {}
   const auth = req.headers.get('authorization')
