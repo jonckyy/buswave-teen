@@ -18,8 +18,8 @@ const RETENTION_DAYS = 7
 
 // Cache: route_id → route_short_name
 let routeMap: Map<string, string> | null = null
-// Cache: trip_id → direction_id
-let directionMap: Map<string, number> | null = null
+// Cache: trip_id → direction_id (loaded on-demand in batches)
+const directionCache = new Map<string, number>()
 
 async function loadRouteMap(): Promise<Map<string, string>> {
   if (routeMap) return routeMap
@@ -41,33 +41,32 @@ async function loadRouteMap(): Promise<Map<string, string>> {
   return routeMap
 }
 
-async function loadDirectionMap(): Promise<Map<string, number>> {
-  if (directionMap) return directionMap
+/** Batch-fetch direction_id for trip IDs not yet in cache */
+async function resolveDirections(tripIds: string[]): Promise<void> {
+  const missing = tripIds.filter((id) => id && !directionCache.has(id))
+  if (missing.length === 0) return
 
-  const { data } = await supabase
-    .from('trips')
-    .select('trip_id, direction_id')
+  // Supabase .in() supports up to ~300 items safely
+  for (let i = 0; i < missing.length; i += 200) {
+    const batch = missing.slice(i, i + 200)
+    const { data } = await supabase
+      .from('trips')
+      .select('trip_id, direction_id')
+      .in('trip_id', batch)
 
-  directionMap = new Map()
-  for (const row of data ?? []) {
-    const r = row as { trip_id: string; direction_id: number }
-    directionMap.set(r.trip_id, r.direction_id)
+    for (const row of data ?? []) {
+      const r = row as { trip_id: string; direction_id: number }
+      directionCache.set(r.trip_id, r.direction_id)
+    }
   }
-  console.log(`[recorder] Loaded ${directionMap.size} trip directions`)
-
-  // Refresh every 24h
-  setTimeout(() => { directionMap = null }, 86_400_000)
-
-  return directionMap
 }
 
 async function recordTick() {
   try {
-    const [vehicleFeed, tripFeed, routes, directions] = await Promise.all([
+    const [vehicleFeed, tripFeed, routes] = await Promise.all([
       getVehiclePositions(),
       getTripUpdates(),
       loadRouteMap(),
-      loadDirectionMap(),
     ])
 
     // Build delay map from trip updates: tripId → delay in seconds
@@ -82,14 +81,23 @@ async function recordTick() {
       delayMap.set(tu.trip.tripId, Math.abs(delay) <= 60 ? 0 : delay)
     }
 
-    // Filter vehicles to target lines
-    const rows: Array<Record<string, unknown>> = []
+    // Filter vehicles to target lines, collect trip IDs for direction lookup
+    const filtered: Array<{ entity: any; routeShort: string }> = []
     for (const entity of vehicleFeed.entity ?? []) {
       const v = entity.vehicle
       if (!v?.position || !v.trip?.routeId) continue
-
       const routeShort = routes.get(v.trip.routeId)
       if (!routeShort || !TARGET_LINES.has(routeShort)) continue
+      filtered.push({ entity, routeShort })
+    }
+
+    // Batch-resolve directions for all trip IDs in this tick
+    const tripIds = filtered.map((f) => f.entity.vehicle.trip?.tripId).filter(Boolean) as string[]
+    await resolveDirections(tripIds)
+
+    const rows: Array<Record<string, unknown>> = []
+    for (const { entity, routeShort } of filtered) {
+      const v = entity.vehicle
 
       const tripId = v.trip.tripId ?? ''
       rows.push({
@@ -105,7 +113,7 @@ async function recordTick() {
         stop_id: v.stopId ?? null,
         stop_sequence: v.currentStopSequence ?? null,
         vehicle_timestamp: v.timestamp != null ? Number(v.timestamp) : null,
-        direction_id: directions.get(tripId) ?? null,
+        direction_id: directionCache.get(tripId) ?? null,
         schedule_relationship: v.trip.scheduleRelationship ?? null,
         congestion_level: v.congestionLevel ?? null,
         occupancy_status: v.occupancyStatus ?? null,
