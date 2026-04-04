@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
@@ -16,7 +16,13 @@ export interface AuthUser {
   signOut: () => Promise<void>
 }
 
-export function useUser(): AuthUser {
+const AuthContext = createContext<AuthUser | null>(null)
+
+/**
+ * Provider that initializes auth state once and shares it via context.
+ * Must wrap the app in Providers.tsx.
+ */
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [role, setRole] = useState<UserRole | null>(null)
   const [loading, setLoading] = useState(true)
@@ -117,7 +123,7 @@ export function useUser(): AuthUser {
     router.refresh()
   }
 
-  return {
+  const value: AuthUser = {
     user,
     role,
     isAdmin: role === 'admin',
@@ -125,4 +131,17 @@ export function useUser(): AuthUser {
     loading,
     signOut,
   }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+/**
+ * Hook to access shared auth state. Must be used within AuthProvider.
+ */
+export function useUser(): AuthUser {
+  const ctx = useContext(AuthContext)
+  if (!ctx) {
+    throw new Error('useUser must be used within an AuthProvider')
+  }
+  return ctx
 }

@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { useState } from 'react'
+import { AuthProvider } from '@/hooks/useUser'
 import { FavoritesSync } from '@/components/FavoritesSync'
 import { ThemeProvider } from '@/components/ThemeProvider'
 
@@ -21,10 +22,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <FavoritesSync />
-      <ThemeProvider>
-        {children}
-      </ThemeProvider>
+      <AuthProvider>
+        <FavoritesSync />
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
+      </AuthProvider>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   )
