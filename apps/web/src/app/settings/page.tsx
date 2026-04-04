@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, Loader2, LogOut, Shield, Star, User, Bell, BellOff, Moon } from 'lucide-react'
+import { Eye, EyeOff, Loader2, LogOut, Shield, Star, User, Bell, BellOff, Moon, Trash2 } from 'lucide-react'
 import { useUser } from '@/hooks/useUser'
 import { useFavoritesStore, selectFavorites } from '@/store/favorites'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
@@ -179,6 +179,36 @@ export default function SettingsPage() {
               >
                 {isSubscribed ? 'Désactiver' : 'Activer'}
               </button>
+            </div>
+
+            {/* Reset all notifications */}
+            <div className="space-y-3 rounded-xl border border-red-500/10 bg-background p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-white">Reinitialiser les notifications</p>
+                  <p className="text-xs text-muted">
+                    Supprime tous les abonnements push et parametres de notification.
+                  </p>
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!confirm('Supprimer tous les abonnements et parametres de notifications ?')) return
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession()
+                      if (session?.access_token) {
+                        await api.clearAllNotifications(session.access_token)
+                        setBanner({ type: 'success', message: 'Notifications reinitialisees.' })
+                      }
+                    } catch {
+                      setBanner({ type: 'error', message: 'Erreur lors de la reinitialisation.' })
+                    }
+                  }}
+                  className="rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-900/20 transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5 inline mr-1" />
+                  Tout supprimer
+                </button>
+              </div>
             </div>
 
             {/* Quiet hours */}

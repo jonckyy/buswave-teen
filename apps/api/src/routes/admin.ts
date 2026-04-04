@@ -391,6 +391,22 @@ adminRouter.delete('/themes/:id', requireAdmin, async (c) => {
   return c.json({ data: { ok: true } })
 })
 
+/** DELETE /users/:userId/notifications — admin only, clear all notifications for a user */
+adminRouter.delete('/users/:userId/notifications', requireAdmin, async (c) => {
+  const targetUserId = c.req.param('userId')
+  console.log(`[admin] clear-all notifications for user=${targetUserId}`)
+
+  const [subsRes, settingsRes] = await Promise.all([
+    supabase.from('push_subscriptions').delete().eq('user_id', targetUserId),
+    supabase.from('notification_settings').delete().eq('user_id', targetUserId),
+  ])
+
+  if (subsRes.error) console.error('[admin] clear subs error:', subsRes.error.message)
+  if (settingsRes.error) console.error('[admin] clear settings error:', settingsRes.error.message)
+
+  return c.json({ data: { ok: true } })
+})
+
 /** PUT /users/:userId/role — admin only, change a user's role */
 adminRouter.put('/users/:userId/role', requireAdmin, async (c) => {
   const adminId = c.get('userId') as string

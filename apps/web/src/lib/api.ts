@@ -149,6 +149,12 @@ export const api = {
       token,
     }),
 
+  clearAllNotifications: (token: string) =>
+    authFetch<{ ok: true }>('/api/notifications/clear-all', {
+      method: 'DELETE',
+      token,
+    }),
+
   getQuietHours: (token: string) =>
     authFetch<{ quietStart: string; quietEnd: string }>('/api/notifications/quiet-hours', {
       method: 'GET',
@@ -176,6 +182,12 @@ export const api = {
     authFetch<{ ok: true }>(`/api/admin/role-config/${encodeURIComponent(role)}`, {
       method: 'PUT',
       body: JSON.stringify(update),
+      token,
+    }),
+
+  clearUserNotifications: (userId: string, token: string) =>
+    authFetch<{ ok: true }>(`/api/admin/users/${encodeURIComponent(userId)}/notifications`, {
+      method: 'DELETE',
       token,
     }),
 

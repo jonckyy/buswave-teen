@@ -220,6 +220,22 @@ notificationsRouter.get('/quiet-hours', requireAuth, async (c) => {
   return c.json({ data: { quietStart: row?.quiet_start ?? '22:00', quietEnd: row?.quiet_end ?? '07:00' } })
 })
 
+/** DELETE /clear-all — remove all push subscriptions + notification settings for current user */
+notificationsRouter.delete('/clear-all', requireAuth, async (c) => {
+  const userId = c.get('userId') as string
+  console.log(`[notifications] clear-all for user=${userId}`)
+
+  const [subsRes, settingsRes] = await Promise.all([
+    supabase.from('push_subscriptions').delete().eq('user_id', userId),
+    supabase.from('notification_settings').delete().eq('user_id', userId),
+  ])
+
+  if (subsRes.error) console.error('[notifications] clear subs error:', subsRes.error.message)
+  if (settingsRes.error) console.error('[notifications] clear settings error:', settingsRes.error.message)
+
+  return c.json({ data: { ok: true } })
+})
+
 /** PUT /quiet-hours — update user's quiet hours */
 notificationsRouter.put('/quiet-hours', requireAuth, async (c) => {
   const userId = c.get('userId') as string

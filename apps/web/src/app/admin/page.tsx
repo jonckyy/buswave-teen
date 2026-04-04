@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Users, Settings, Shield, Loader2, Save, Check, ChevronDown, ChevronUp, Bell, Star, Smartphone, Clock, Palette } from 'lucide-react'
+import { ArrowLeft, Users, Settings, Shield, Loader2, Save, Check, ChevronDown, ChevronUp, Bell, Star, Smartphone, Clock, Palette, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { api } from '@/lib/api'
 import { useUser } from '@/hooks/useUser'
@@ -195,6 +195,25 @@ function UserRow({ user: u, expanded, onToggle, updatingId, onRoleChange, getTok
 
 /** Expandable detail panel for a single user */
 function UserDetailPanel({ userId, getToken }: { userId: string; getToken: () => Promise<string | null> }) {
+  const queryClient = useQueryClient()
+  const [clearing, setClearing] = useState(false)
+
+  async function handleClearNotifications() {
+    if (!confirm('Supprimer tous les abonnements push et parametres de notifications pour cet utilisateur ?')) return
+    setClearing(true)
+    try {
+      const token = await getToken()
+      if (!token) return
+      await api.clearUserNotifications(userId, token)
+      queryClient.invalidateQueries({ queryKey: ['admin-user-detail', userId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+    } catch (err) {
+      console.error('[admin] clear notifications error:', err)
+    } finally {
+      setClearing(false)
+    }
+  }
+
   const { data: detail, isLoading, isError } = useQuery({
     queryKey: ['admin-user-detail', userId],
     queryFn: async () => {
@@ -254,6 +273,16 @@ function UserDetailPanel({ userId, getToken }: { userId: string; getToken: () =>
           <Smartphone className="h-3.5 w-3.5" />
           Appareils: <span className="text-white">{browserSummary || 'Aucun'}</span>
         </div>
+        {(detail.pushSubscriptions.length > 0 || detail.favorites.some((f) => f.notifications)) && (
+          <button
+            onClick={handleClearNotifications}
+            disabled={clearing}
+            className="flex items-center gap-1 rounded-lg border border-red-500/30 px-2 py-1 text-[10px] font-semibold text-red-400 hover:bg-red-900/20 transition-colors disabled:opacity-50 ml-auto"
+          >
+            {clearing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+            Reset notifs
+          </button>
+        )}
       </div>
 
       {/* Push subscriptions */}
