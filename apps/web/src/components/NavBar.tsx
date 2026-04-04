@@ -24,38 +24,38 @@ export function NavBar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur">
-      <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
-        <Link href="/" className="flex items-center gap-2 font-bold text-accent-cyan">
+      <div className="mx-auto flex max-w-4xl items-center gap-2 px-4 py-3">
+        <Link href="/" className="flex items-center gap-2 font-bold text-accent-cyan shrink-0">
           <Bus className="h-5 w-5" />
-          BusWave
+          <span className="hidden sm:inline">BusWave</span>
         </Link>
-        <nav className="flex items-center gap-1">
+        <nav className="flex items-center gap-1 overflow-x-auto scrollbar-hide ml-auto">
           {navItems.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
               className={cn(
-                'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors shrink-0',
                 pathname === href
                   ? 'bg-accent-cyan/10 text-accent-cyan'
                   : 'text-muted hover:text-white'
               )}
             >
-              <Icon className={cn('h-4 w-4', href === '/admin' && 'text-yellow-400')} />
-              <span className="hidden sm:inline">{label}</span>
+              <Icon className={cn('h-4 w-4 shrink-0', href === '/admin' && 'text-yellow-400')} />
+              <span className="hidden sm:inline whitespace-nowrap">{label}</span>
             </Link>
           ))}
 
           {/* Auth button */}
           {!loading && (
             user ? (
-              <div className="flex items-center gap-1 ml-1">
+              <div className="flex items-center gap-1 ml-1 shrink-0">
                 <Link
                   href="/settings"
                   className="flex items-center gap-1 text-xs text-muted px-2 hover:text-white transition-colors"
                 >
-                  <User className="h-3 w-3" />
-                  {user.email?.split('@')[0]}
+                  <User className="h-3 w-3 shrink-0" />
+                  <span className="hidden md:inline max-w-[100px] truncate">{user.email?.split('@')[0]}</span>
                 </Link>
                 <button
                   onClick={signOut}
