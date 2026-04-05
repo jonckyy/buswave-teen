@@ -135,7 +135,10 @@ export default function AlertsPage() {
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-medium text-slight-delay">{alert.headerText}</p>
                   {alert.activePeriodStart && (
-                    <span className="text-xs text-muted shrink-0">{formatTime(alert.activePeriodStart)}</span>
+                    <span className="text-xs text-muted shrink-0 whitespace-nowrap">
+                      {new Date(alert.activePeriodStart * 1000).toLocaleDateString('fr-BE', { day: 'numeric', month: 'short' })}{' '}
+                      {formatTime(alert.activePeriodStart)}
+                    </span>
                   )}
                 </div>
                 {/* Route badges */}
