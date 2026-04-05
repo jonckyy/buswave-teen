@@ -41,7 +41,7 @@ export default function AlertsPage() {
   const [routeFilter, setRouteFilter] = useState<'all' | 'favorites'>(() =>
     favorites.length > 0 ? 'favorites' : 'all'
   )
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('active')
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('all')
 
   const { data: alerts = [], isLoading } = useQuery({
     queryKey: ['alerts'],
