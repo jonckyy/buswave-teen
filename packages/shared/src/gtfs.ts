@@ -64,6 +64,16 @@ export interface RouteDirection {
   stops: RouteStop[]
 }
 
+/** A single planned departure in a stop timetable */
+export interface TimetableEntry {
+  arrivalTime: string // GTFS "HH:MM:SS" (may exceed 24:00)
+  routeId: string
+  routeShortName: string
+  headsign: string
+  directionId: 0 | 1
+  tripId: string
+}
+
 export interface GtfsCalendar {
   service_id: string
   monday: boolean

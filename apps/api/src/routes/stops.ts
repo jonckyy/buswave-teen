@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { getTripUpdates } from '../lib/gtfs-rt.js'
 import { supabase } from '../lib/supabase.js'
 import { getRouteSiblings } from '../lib/route-siblings.js'
-import type { StopArrival, ApiResponse, GtfsStop, StopRoute, StopWithHeadsigns } from '@buswave/shared'
+import type { StopArrival, ApiResponse, GtfsStop, StopRoute, StopWithHeadsigns, TimetableEntry } from '@buswave/shared'
 
 export const stopsRouter = new Hono()
 
@@ -460,6 +460,109 @@ stopsRouter.get('/:stopId/routes', async (c) => {
     )
 
   return c.json({ data: routes } satisfies ApiResponse<StopRoute[]>)
+})
+
+/** GET /api/realtime/stops/:stopId/timetable?day=monday&routeId=XXX */
+stopsRouter.get('/:stopId/timetable', async (c) => {
+  const stopId = c.req.param('stopId')
+  const routeId = c.req.query('routeId') ?? null
+
+  // Default day = current Brussels day of week
+  const validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+  let day = c.req.query('day')
+  if (!day || !validDays.includes(day)) {
+    const now = new Date()
+    const brusselsDay = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'Europe/Brussels' })
+      .format(now)
+      .toLowerCase()
+    day = brusselsDay
+  }
+
+  // Today in YYYYMMDD (Brussels TZ)
+  const now = new Date()
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Brussels' }).format(now).split('-')
+  const today = parts.join('')
+
+  // Resolve route siblings if routeId provided
+  let effectiveRouteId = routeId
+  let siblingIds: string[] = []
+  if (routeId) {
+    siblingIds = await getRouteSiblings(routeId)
+  }
+
+  // Call RPC — if siblings, call without route filter and filter in JS
+  const { data, error } = await supabase.rpc('stop_timetable', {
+    p_stop_id: stopId,
+    p_day_name: day,
+    p_route_id: siblingIds.length > 1 ? null : effectiveRouteId,
+    p_today: today,
+  })
+
+  if (error) {
+    console.error('[stops] timetable RPC error:', error.message)
+    return c.json({ error: 'Failed to fetch timetable' }, 500)
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let rows = (data ?? []) as any[]
+
+  // Filter by sibling route IDs if needed
+  if (siblingIds.length > 1) {
+    const sibSet = new Set(siblingIds)
+    rows = rows.filter((r) => sibSet.has(r.route_id))
+  }
+
+  // Resolve empty headsigns — fallback to last stop name
+  const emptyHeadsignTripIds = rows.filter((r) => !r.trip_headsign).map((r) => r.trip_id as string)
+  const headsignMap = new Map<string, string>()
+
+  if (emptyHeadsignTripIds.length > 0) {
+    // Batch in groups of 50
+    for (let i = 0; i < emptyHeadsignTripIds.length; i += 50) {
+      const batch = emptyHeadsignTripIds.slice(i, i + 50)
+      const { data: lastStops } = await supabase
+        .from('stop_times')
+        .select('trip_id, stop_id, stop_sequence')
+        .in('trip_id', batch)
+        .order('stop_sequence', { ascending: false })
+        .limit(batch.length * 2)
+
+      if (lastStops) {
+        const seen = new Set<string>()
+        for (const ls of lastStops as { trip_id: string; stop_id: string }[]) {
+          if (!seen.has(ls.trip_id)) {
+            seen.add(ls.trip_id)
+            headsignMap.set(ls.trip_id, ls.stop_id)
+          }
+        }
+      }
+    }
+
+    // Fetch stop names
+    const stopIds = [...new Set(headsignMap.values())]
+    if (stopIds.length > 0) {
+      const { data: stops } = await supabase
+        .from('stops')
+        .select('stop_id, stop_name')
+        .in('stop_id', stopIds)
+
+      const nameMap = new Map((stops ?? []).map((s: { stop_id: string; stop_name: string }) => [s.stop_id, s.stop_name]))
+      for (const [tripId, stopIdVal] of headsignMap) {
+        headsignMap.set(tripId, nameMap.get(stopIdVal) ?? stopIdVal)
+      }
+    }
+  }
+
+  const entries: TimetableEntry[] = rows.map((r) => ({
+    arrivalTime: r.arrival_time,
+    routeId: r.route_id,
+    routeShortName: r.route_short_name,
+    headsign: r.trip_headsign || headsignMap.get(r.trip_id) || '',
+    directionId: r.direction_id ?? 0,
+    tripId: r.trip_id,
+  }))
+
+  return c.json({ data: entries } satisfies ApiResponse<TimetableEntry[]>)
 })
 
 /** GET /api/realtime/stops/:stopId/info */

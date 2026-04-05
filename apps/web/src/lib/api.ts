@@ -22,6 +22,7 @@ import type {
   AdminUserRow,
   AdminUserDetail,
   Theme,
+  TimetableEntry,
 } from '@buswave/shared'
 
 const BASE = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001'
@@ -116,6 +117,11 @@ export const api = {
 
   stopRoutes: (stopId: string) =>
     apiFetch<StopRoute[]>(`/api/realtime/stops/${encodeURIComponent(stopId)}/routes`),
+
+  stopTimetable: (stopId: string, day: string, routeId?: string) =>
+    apiFetch<TimetableEntry[]>(
+      `/api/realtime/stops/${encodeURIComponent(stopId)}/timetable?day=${encodeURIComponent(day)}${routeId ? `&routeId=${encodeURIComponent(routeId)}` : ''}`
+    ),
 
   alerts: () => apiFetch<Alert[]>('/api/realtime/alerts'),
 
