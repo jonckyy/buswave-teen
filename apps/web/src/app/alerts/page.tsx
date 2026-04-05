@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Star } from 'lucide-react'
+import { AlertTriangle, Star, Clock, CalendarClock } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useFavoritesStore, selectFavorites } from '@/store/favorites'
 import { cn } from '@/lib/utils'
@@ -10,15 +10,21 @@ import type { Alert } from '@buswave/shared'
 
 const TWO_HOURS = 2 * 60 * 60
 
-function isRecent(alert: Alert): boolean {
+type TimeFilter = 'active' | 'future' | 'all'
+
+function filterByTime(alert: Alert, mode: TimeFilter): boolean {
   const nowSec = Math.floor(Date.now() / 1000)
-  // No start time → keep
+
+  if (mode === 'all') return true
+
+  if (mode === 'future') {
+    return alert.activePeriodStart != null && alert.activePeriodStart > nowSec
+  }
+
+  // 'active' — currently active or recently started (within 2h)
   if (!alert.activePeriodStart) return true
-  // Future alert → skip
   if (alert.activePeriodStart > nowSec) return false
-  // Started more than 2h ago and already ended → skip
   if (alert.activePeriodEnd && alert.activePeriodEnd < nowSec - TWO_HOURS) return false
-  // Active or recently started
   return nowSec - alert.activePeriodStart <= TWO_HOURS
     || (alert.activePeriodEnd != null && alert.activePeriodEnd >= nowSec)
 }
@@ -32,9 +38,10 @@ function formatTime(unixSec: number): string {
 
 export default function AlertsPage() {
   const favorites = useFavoritesStore(selectFavorites)
-  const [filterMode, setFilterMode] = useState<'all' | 'favorites'>(() =>
+  const [routeFilter, setRouteFilter] = useState<'all' | 'favorites'>(() =>
     favorites.length > 0 ? 'favorites' : 'all'
   )
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('active')
 
   const { data: alerts = [], isLoading } = useQuery({
     queryKey: ['alerts'],
@@ -70,13 +77,15 @@ export default function AlertsPage() {
     [routeNames]
   )
 
-  const recent = alerts
-    .filter(isRecent)
-    .sort((a, b) => (b.activePeriodStart ?? 0) - (a.activePeriodStart ?? 0))
+  const timeFiltered = alerts
+    .filter((a) => filterByTime(a, timeFilter))
+    .sort((a, b) => (timeFilter === 'future'
+      ? (a.activePeriodStart ?? 0) - (b.activePeriodStart ?? 0)
+      : (b.activePeriodStart ?? 0) - (a.activePeriodStart ?? 0)))
 
   const filtered = useMemo(() => {
-    if (filterMode === 'all' || favRouteIds.size === 0) return recent
-    return recent.filter((alert) => {
+    if (routeFilter === 'all' || favRouteIds.size === 0) return timeFiltered
+    return timeFiltered.filter((alert) => {
       // No informed entities → system-wide alert, always show
       if (alert.routeIds.length === 0 && alert.stopIds.length === 0) return true
       // Match by route
@@ -85,41 +94,82 @@ export default function AlertsPage() {
       if (alert.stopIds.some((id) => favStopIds.has(id))) return true
       return false
     })
-  }, [recent, filterMode, favRouteIds, favStopIds])
+  }, [timeFiltered, routeFilter, favRouteIds, favStopIds])
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">Alertes reseau</h1>
+      <div className="flex flex-col gap-3 mb-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-white">Alertes reseau</h1>
 
-        {/* Filter toggle */}
-        {favorites.length > 0 && (
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-0.5">
-            <button
-              onClick={() => setFilterMode('all')}
-              className={cn(
-                'rounded-md px-3 py-1 text-xs font-medium transition-colors',
-                filterMode === 'all'
-                  ? 'bg-accent-cyan/10 text-accent-cyan'
-                  : 'text-muted hover:text-white'
-              )}
-            >
-              Toutes
-            </button>
-            <button
-              onClick={() => setFilterMode('favorites')}
-              className={cn(
-                'flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium transition-colors',
-                filterMode === 'favorites'
-                  ? 'bg-accent-cyan/10 text-accent-cyan'
-                  : 'text-muted hover:text-white'
-              )}
-            >
-              <Star className="h-3 w-3" />
-              Mes lignes ({favRouteIds.size})
-            </button>
-          </div>
-        )}
+          {/* Route filter */}
+          {favorites.length > 0 && (
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-0.5">
+              <button
+                onClick={() => setRouteFilter('all')}
+                className={cn(
+                  'rounded-md px-3 py-1 text-xs font-medium transition-colors',
+                  routeFilter === 'all'
+                    ? 'bg-accent-cyan/10 text-accent-cyan'
+                    : 'text-muted hover:text-white'
+                )}
+              >
+                Toutes
+              </button>
+              <button
+                onClick={() => setRouteFilter('favorites')}
+                className={cn(
+                  'flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium transition-colors',
+                  routeFilter === 'favorites'
+                    ? 'bg-accent-cyan/10 text-accent-cyan'
+                    : 'text-muted hover:text-white'
+                )}
+              >
+                <Star className="h-3 w-3" />
+                Mes lignes ({favRouteIds.size})
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Time filter */}
+        <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-0.5 w-fit">
+          <button
+            onClick={() => setTimeFilter('active')}
+            className={cn(
+              'flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium transition-colors',
+              timeFilter === 'active'
+                ? 'bg-accent-cyan/10 text-accent-cyan'
+                : 'text-muted hover:text-white'
+            )}
+          >
+            <Clock className="h-3 w-3" />
+            Actives
+          </button>
+          <button
+            onClick={() => setTimeFilter('future')}
+            className={cn(
+              'flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium transition-colors',
+              timeFilter === 'future'
+                ? 'bg-accent-cyan/10 text-accent-cyan'
+                : 'text-muted hover:text-white'
+            )}
+          >
+            <CalendarClock className="h-3 w-3" />
+            A venir
+          </button>
+          <button
+            onClick={() => setTimeFilter('all')}
+            className={cn(
+              'rounded-md px-3 py-1 text-xs font-medium transition-colors',
+              timeFilter === 'all'
+                ? 'bg-accent-cyan/10 text-accent-cyan'
+                : 'text-muted hover:text-white'
+            )}
+          >
+            Tout
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -127,9 +177,13 @@ export default function AlertsPage() {
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card py-16 text-center">
           <p className="text-muted">
-            {filterMode === 'favorites'
+            {routeFilter === 'favorites'
               ? 'Aucune alerte pour vos lignes favorites'
-              : 'Aucune alerte ces 2 dernieres heures'}
+              : timeFilter === 'future'
+                ? 'Aucune alerte a venir'
+                : timeFilter === 'active'
+                  ? 'Aucune alerte active'
+                  : 'Aucune alerte'}
           </p>
         </div>
       ) : (
