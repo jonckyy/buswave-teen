@@ -37,6 +37,7 @@ export interface Alert {
   activePeriodStart?: number
   activePeriodEnd?: number
   routeIds: string[]
+  routeShortNames: string[]
   stopIds: string[]
 }
 

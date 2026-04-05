@@ -59,22 +59,16 @@ export default function AlertsPage() {
     [favorites]
   )
 
-  // Collect all routeIds from alerts for name lookup
-  const allRouteIds = useMemo(
-    () => [...new Set(alerts.flatMap((a) => a.routeIds))],
-    [alerts]
-  )
-
-  const { data: routeNames = [] } = useQuery({
-    queryKey: ['route-names', allRouteIds.join(',')],
-    queryFn: () => api.routeNames(allRouteIds),
-    enabled: allRouteIds.length > 0,
+  // Resolve favorite routeIds to short names for matching across siblings
+  const { data: favRouteData = [] } = useQuery({
+    queryKey: ['route-names', [...favRouteIds].join(',')],
+    queryFn: () => api.routeNames([...favRouteIds]),
+    enabled: favRouteIds.size > 0,
     staleTime: 5 * 60_000,
   })
-
-  const routeNameMap = useMemo(
-    () => new Map(routeNames.map((r) => [r.route_id, r.route_short_name])),
-    [routeNames]
+  const favRouteShortNames = useMemo(
+    () => new Set(favRouteData.map((r) => r.route_short_name)),
+    [favRouteData]
   )
 
   const timeFiltered = alerts
@@ -84,17 +78,17 @@ export default function AlertsPage() {
       : (b.activePeriodStart ?? 0) - (a.activePeriodStart ?? 0)))
 
   const filtered = useMemo(() => {
-    if (routeFilter === 'all' || favRouteIds.size === 0) return timeFiltered
+    if (routeFilter === 'all' || favRouteShortNames.size === 0) return timeFiltered
     return timeFiltered.filter((alert) => {
-      // No informed entities → system-wide alert, always show
-      if (alert.routeIds.length === 0 && alert.stopIds.length === 0) return true
-      // Match by route
-      if (alert.routeIds.some((id) => favRouteIds.has(id))) return true
+      // No informed entities → no way to match, skip in favorites mode
+      if (alert.routeIds.length === 0 && alert.stopIds.length === 0) return false
+      // Match by route short name (handles siblings with different route_ids)
+      if (alert.routeShortNames?.some((name) => favRouteShortNames.has(name))) return true
       // Match by stop
       if (alert.stopIds.some((id) => favStopIds.has(id))) return true
       return false
     })
-  }, [timeFiltered, routeFilter, favRouteIds, favStopIds])
+  }, [timeFiltered, routeFilter, favRouteShortNames, favStopIds])
 
   return (
     <div>
@@ -205,19 +199,19 @@ export default function AlertsPage() {
                   )}
                 </div>
                 {/* Route badges */}
-                {alert.routeIds.length > 0 && (
+                {alert.routeShortNames && alert.routeShortNames.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {alert.routeIds.map((rid) => (
+                    {alert.routeShortNames.map((name) => (
                       <span
-                        key={rid}
+                        key={name}
                         className={cn(
                           'rounded px-1.5 py-0.5 text-[10px] font-bold',
-                          favRouteIds.has(rid)
+                          favRouteShortNames.has(name)
                             ? 'bg-accent-cyan/20 text-accent-cyan'
                             : 'bg-white/10 text-muted'
                         )}
                       >
-                        {routeNameMap.get(rid) ?? rid}
+                        {name}
                       </span>
                     ))}
                   </div>
