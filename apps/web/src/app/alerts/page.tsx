@@ -138,7 +138,7 @@ export default function AlertsPage() {
                   <p className="text-sm font-medium text-slight-delay">{alert.headerText}</p>
                   {alert.activePeriodStart && (
                     <span className="text-xs text-muted shrink-0 whitespace-nowrap">
-                      {new Date(alert.activePeriodStart * 1000).toLocaleDateString('fr-BE', { day: 'numeric', month: 'short' })}{' '}
+                      {new Date(alert.activePeriodStart * 1000).toLocaleDateString('fr-BE', { day: 'numeric', month: 'short', year: 'numeric' })}{' '}
                       {formatTime(alert.activePeriodStart)}
                     </span>
                   )}
