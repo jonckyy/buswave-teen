@@ -11,9 +11,16 @@ import type { Alert } from '@buswave/shared'
 const TWO_HOURS = 2 * 60 * 60
 
 function isRecent(alert: Alert): boolean {
-  if (!alert.activePeriodStart) return true // no timestamp → keep
   const nowSec = Math.floor(Date.now() / 1000)
+  // No start time → keep
+  if (!alert.activePeriodStart) return true
+  // Future alert → skip
+  if (alert.activePeriodStart > nowSec) return false
+  // Started more than 2h ago and already ended → skip
+  if (alert.activePeriodEnd && alert.activePeriodEnd < nowSec - TWO_HOURS) return false
+  // Active or recently started
   return nowSec - alert.activePeriodStart <= TWO_HOURS
+    || (alert.activePeriodEnd != null && alert.activePeriodEnd >= nowSec)
 }
 
 function formatTime(unixSec: number): string {
