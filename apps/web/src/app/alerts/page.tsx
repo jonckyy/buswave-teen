@@ -63,7 +63,9 @@ export default function AlertsPage() {
     [routeNames]
   )
 
-  const recent = alerts.filter(isRecent)
+  const recent = alerts
+    .filter(isRecent)
+    .sort((a, b) => (b.activePeriodStart ?? 0) - (a.activePeriodStart ?? 0))
 
   const filtered = useMemo(() => {
     if (filterMode === 'all' || favRouteIds.size === 0) return recent
