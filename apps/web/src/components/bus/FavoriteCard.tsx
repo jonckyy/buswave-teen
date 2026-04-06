@@ -13,6 +13,8 @@ import { cn } from '@/lib/utils'
 import { Card } from '@/components/ui/Card'
 import { Pill } from '@/components/ui/Pill'
 import { IconButton } from '@/components/ui/IconButton'
+import { NotificationSettingsPanel } from '@/components/NotificationSettingsPanel'
+import { TimetablePanel } from '@/components/TimetablePanel'
 
 interface Props {
   stopId: string
@@ -54,6 +56,8 @@ export function FavoriteCard({ stopId, routeId }: Props) {
   const { user } = useUser()
   const favorites = useFavoritesStore(selectFavorites)
   const [removing, setRemoving] = useState(false)
+  const [showNotif, setShowNotif] = useState(false)
+  const [showTimetable, setShowTimetable] = useState(false)
 
   const favorite = favorites.find(
     (f) => f.stopId === stopId && (f.routeId ?? null) === routeId
@@ -166,14 +170,14 @@ export function FavoriteCard({ stopId, routeId }: Props) {
           variant="secondary"
           icon={<Clock className="h-5 w-5" strokeWidth={2.5} />}
           label="Horaires"
-          onClick={() => {/* TODO timetable panel */}}
+          onClick={() => setShowTimetable(true)}
         />
         {user && favorite && (
           <IconButton
             variant="lime"
             icon={<Bell className="h-5 w-5" strokeWidth={2.5} />}
             label="Notifications"
-            onClick={() => {/* TODO notif panel */}}
+            onClick={() => setShowNotif(true)}
           />
         )}
         <IconButton
@@ -186,6 +190,24 @@ export function FavoriteCard({ stopId, routeId }: Props) {
           }}
         />
       </div>
+
+      {/* Panels */}
+      {showNotif && favorite && (
+        <NotificationSettingsPanel
+          favoriteId={favorite.id}
+          stopName={stopName}
+          routeId={routeId}
+          onClose={() => setShowNotif(false)}
+        />
+      )}
+      {showTimetable && (
+        <TimetablePanel
+          stopId={stopId}
+          routeId={routeId}
+          stopName={stopName}
+          onClose={() => setShowTimetable(false)}
+        />
+      )}
     </Card>
   )
 }

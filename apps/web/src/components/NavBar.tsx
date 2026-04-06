@@ -2,14 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Star, Search, Map, Bell, User } from 'lucide-react'
+import { Star, Search, Map, Bell, User, Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUser } from '@/hooks/useUser'
 import { useFeatureFlags } from '@/hooks/useFeatureFlags'
 
 export function NavBar() {
   const pathname = usePathname()
-  const { user } = useUser()
+  const { user, isAdmin } = useUser()
   const flags = useFeatureFlags()
 
   const items = [
@@ -17,6 +17,7 @@ export function NavBar() {
     { href: '/search', label: 'Trouver', icon: Search },
     { href: '/map', label: 'Carte', icon: Map },
     ...(flags.showAlertsPage ? [{ href: '/alerts', label: 'Alertes', icon: Bell }] : []),
+    ...(isAdmin ? [{ href: '/admin', label: 'Admin', icon: Shield }] : []),
     { href: user ? '/settings' : '/auth', label: user ? 'Moi' : 'Login', icon: User },
   ]
 
