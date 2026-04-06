@@ -1,6 +1,38 @@
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@import 'leaflet/dist/leaflet.css';
+
+:root {
+  --bg: 250 250 249;
+  --surface: 255 255 255;
+  --ink: 15 23 42;
+  --primary: 124 58 237;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  font-family: 'Baloo 2', system-ui, sans-serif;
+  background: #FAFAF9;
+  color: #0F172A;
+}
+
+body {
+  background: #FAFAF9;
+  color: #0F172A;
+  overscroll-behavior-y: contain;
+}
+
+/* Bigger touch targets on mobile */
+button, a, input, select {
+  touch-action: manipulation;
+}
 
 @layer utilities {
   .scrollbar-hide {
@@ -10,171 +42,35 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
-}
 
-/* Leaflet CSS — must be imported globally */
-@import 'leaflet/dist/leaflet.css';
+  /* Press feedback for tappable elements */
+  .pressable {
+    transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .pressable:active {
+    transform: scale(0.94);
+  }
 
-:root {
-  /* Theme colors — RGB channels for Tailwind opacity modifier support */
-  --background: 10 14 23;
-  --card: 19 26 43;
-  --accent-cyan: 0 212 255;
-  --on-time: 0 230 118;
-  --slight-delay: 255 145 0;
-  --large-delay: 255 61 113;
-  --muted: 136 146 176;
-  --border: 30 42 63;
-  --foreground: 226 232 240;
-
-  /* Shape tokens */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 1rem;
-
-  /* Effect tokens (Midnight = no effects) */
-  --glow-color: 0 212 255;
-  --glow-intensity: 0px;
-  --shimmer-duration: 0s;
-
-  /* Font */
-  --font-family: 'Inter', system-ui, sans-serif;
-}
-
-html,
-body {
-  background-color: rgb(var(--background));
-  color: rgb(var(--foreground));
-  font-family: var(--font-family);
-  -webkit-font-smoothing: antialiased;
-}
-
-/* Override Leaflet's default tile seam */
-.leaflet-container {
-  background: rgb(var(--background));
-}
-
-/* Animated dashed polyline — flows in the direction of the route */
-.animated-dash {
-  animation: dash-flow 1.2s linear infinite;
-}
-@keyframes dash-flow {
-  to {
-    stroke-dashoffset: -20;
+  /* Skeleton shimmer */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgba(226, 232, 240, 0.4) 0%,
+      rgba(196, 181, 253, 0.5) 50%,
+      rgba(226, 232, 240, 0.4) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s linear infinite;
   }
 }
 
-/* ─── Theme: Aurora ─── Gradient mesh / Northern lights ─────────────── */
-
-[data-theme="aurora"] .theme-card {
-  background: linear-gradient(
-    180deg,
-    rgb(var(--card)) 0%,
-    rgb(var(--card) / 0.85) 100%
-  );
-  border-image: linear-gradient(
-    180deg,
-    rgb(var(--accent-cyan) / 0.12),
-    rgb(129 140 248 / 0.12)
-  ) 1;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  [data-theme="aurora"] .theme-card {
-    box-shadow: 0 0 var(--glow-intensity) rgb(var(--glow-color) / 0.06);
-    animation: aurora-shimmer var(--shimmer-duration) ease-in-out infinite;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
-
-  @keyframes aurora-shimmer {
-    0%, 100% { box-shadow: 0 0 8px rgb(56 189 248 / 0.06); }
-    50% { box-shadow: 0 0 16px rgb(129 140 248 / 0.1); }
+  .pressable:active {
+    transform: none;
   }
-
-  [data-theme="aurora"] .theme-glow {
-    text-shadow: 0 0 8px rgb(var(--glow-color) / 0.3);
-  }
-}
-
-/* ─── Theme: Ember ─── Warm night city ──────────────────────────────── */
-
-[data-theme="ember"] .theme-card {
-  background: linear-gradient(
-    180deg,
-    rgb(var(--card)) 0%,
-    rgb(var(--card)) 85%,
-    rgb(251 146 60 / 0.03) 100%
-  );
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  [data-theme="ember"] .theme-glow {
-    animation: ember-glow 3s ease-in-out infinite;
-  }
-
-  @keyframes ember-glow {
-    0%, 100% { box-shadow: 0 0 4px rgb(var(--glow-color) / 0.15); }
-    50% { box-shadow: 0 0 12px rgb(var(--glow-color) / 0.25); }
-  }
-
-  [data-theme="ember"] .theme-card:hover {
-    box-shadow: 0 4px 20px rgb(var(--glow-color) / 0.08);
-    transform: translateY(-1px);
-    transition: box-shadow 0.3s ease-out, transform 0.3s ease-out;
-  }
-}
-
-/* ─── Theme: Neon ─── Cyberpunk / Vaporwave ─────────────────────────── */
-
-[data-theme="neon"] .theme-card {
-  background: rgb(var(--card));
-  border: 1px solid rgb(var(--border));
-  position: relative;
-}
-
-[data-theme="neon"] .theme-card::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(
-    135deg,
-    rgb(255 113 206 / 0.15),
-    rgb(1 205 254 / 0.15)
-  );
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  [data-theme="neon"] .theme-glow {
-    text-shadow: 0 0 10px rgb(var(--glow-color) / 0.4),
-                 0 0 20px rgb(var(--glow-color) / 0.15);
-  }
-
-  [data-theme="neon"] .theme-card::before {
-    animation: neon-border-shimmer var(--shimmer-duration) linear infinite;
-  }
-
-  @keyframes neon-border-shimmer {
-    0% { filter: hue-rotate(0deg); }
-    100% { filter: hue-rotate(360deg); }
-  }
-
-  [data-theme="neon"] .theme-card:hover {
-    box-shadow: 0 0 20px rgb(var(--glow-color) / 0.12);
-  }
-}
-
-/* ─── Theme utility classes ─────────────────────────────────────────── */
-
-.theme-glow {
-  /* Base class — animations applied per-theme above */
-}
-
-.theme-card {
-  /* Base class — gradients/effects applied per-theme above */
-  transition: box-shadow 0.3s ease-out, transform 0.3s ease-out;
 }

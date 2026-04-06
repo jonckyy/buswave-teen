@@ -5,7 +5,6 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { useState } from 'react'
 import { AuthProvider } from '@/hooks/useUser'
 import { FavoritesSync } from '@/components/FavoritesSync'
-import { ThemeProvider } from '@/components/ThemeProvider'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -24,9 +23,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <FavoritesSync />
-        <ThemeProvider>
-          {children}
-        </ThemeProvider>
+        {children}
       </AuthProvider>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
