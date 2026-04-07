@@ -11,13 +11,15 @@ import { useCountdown } from '@/hooks/useCountdown'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Pill } from '@/components/ui/Pill'
+import { Card } from '@/components/ui/Card'
+import { GradientText } from '@/components/ui/GradientText'
 import type { VehiclePosition } from '@buswave/shared'
 
 const FavoriteMapView = dynamic(() => import('./FavoriteMapView').then((m) => m.FavoriteMapView), {
   ssr: false,
   loading: () => (
-    <div className="h-[400px] rounded-3xl border-2 border-line bg-primary-50 animate-pulse flex items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
+    <div className="h-[400px] rounded-3xl glass shadow-glass animate-pulse flex items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
     </div>
   ),
 })
@@ -27,7 +29,7 @@ export default function FavoriteMapPage() {
     <Suspense
       fallback={
         <div className="flex justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       }
     >
@@ -52,12 +54,12 @@ function formatRemaining(sec: number): string {
   return `dans ${h}h ${m % 60}min`
 }
 
-function delayColor(sec: number): string {
+function delayColorClass(sec: number): string {
   const abs = Math.abs(sec)
-  if (abs <= 60) return 'text-lime-600'
-  if (sec > 300) return 'text-rose-600'
-  if (sec > 0) return 'text-coral-500'
-  return 'text-secondary-600'
+  if (abs <= 60) return 'text-lime-light'
+  if (sec > 300) return 'text-rose-light'
+  if (sec > 0) return 'text-orange'
+  return 'text-cyan-light'
 }
 
 function FavoriteMapInner() {
@@ -97,7 +99,6 @@ function FavoriteMapInner() {
   const nextArrival = arrivals[0]
   const countdown = useCountdown(nextArrival?.predictedArrivalUnix ?? 0)
 
-  // Find the bus serving the next arrival
   const nextBus = useMemo<VehiclePosition | null>(() => {
     const firstTripId = arrivals[0]?.tripId
     if (!firstTripId) return null
@@ -125,23 +126,25 @@ function FavoriteMapInner() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <Link href="/">
+      {/* Back */}
+      <Link href="/" className="inline-block">
         <Button variant="ghost" size="sm" iconLeft={<ArrowLeft className="h-4 w-4" strokeWidth={2.5} />}>
           Retour
         </Button>
       </Link>
 
-      {/* Stop header card */}
-      <div className="rounded-3xl bg-primary-600 text-white p-5 shadow-pop">
+      {/* Hero card */}
+      <Card variant="glow" className="!p-5 shadow-glow animate-fade-up">
         <div className="flex items-start gap-3 mb-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20 shrink-0">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-btn-primary text-white shadow-glow shrink-0">
             <MapPin className="h-5 w-5" strokeWidth={2.5} />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-extrabold truncate">{stopData?.stop_name ?? stopId}</h1>
+            <GradientText as="h1" className="text-xl font-extrabold leading-tight block truncate">
+              {stopData?.stop_name ?? stopId}
+            </GradientText>
             {nextArrival && (
-              <p className="text-sm text-white/80 font-medium truncate">
+              <p className="text-sm text-ink3 font-medium truncate">
                 Ligne {nextArrival.routeShortName} → {nextArrival.headsign}
               </p>
             )}
@@ -149,14 +152,19 @@ function FavoriteMapInner() {
         </div>
 
         {nextArrival && (
-          <div className="bg-white/15 rounded-2xl p-4 backdrop-blur-sm">
+          <div className="rounded-2xl glass p-4">
             <div className="flex items-baseline gap-3 flex-wrap">
-              <span className="text-5xl font-extrabold tabular-nums text-white">
+              <span
+                className={cn(
+                  'text-5xl font-extrabold tabular-nums tracking-tight',
+                  delayColorClass(nextArrival.delaySeconds)
+                )}
+              >
                 {formatClockTime(nextArrival.predictedArrivalUnix)}
               </span>
               {Math.abs(nextArrival.delaySeconds) > 60 && (
                 <Pill
-                  variant={nextArrival.delaySeconds > 300 ? 'rose' : 'coral'}
+                  variant={nextArrival.delaySeconds > 300 ? 'rose' : 'magenta'}
                   size="md"
                 >
                   {nextArrival.delaySeconds > 0 ? '+' : ''}
@@ -164,26 +172,28 @@ function FavoriteMapInner() {
                 </Pill>
               )}
             </div>
-            <p className="text-lg font-bold text-white/90 mt-1">{formatRemaining(countdown)}</p>
+            <p className="text-base font-bold text-ink2 mt-1">{formatRemaining(countdown)}</p>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Map */}
       {stopData && (
-        <FavoriteMapView
-          stopLat={stopData.stop_lat}
-          stopLon={stopData.stop_lon}
-          stopName={stopData.stop_name}
-          bus={nextBus}
-          shapePoints={shapePoints}
-        />
+        <div className="animate-fade-up">
+          <FavoriteMapView
+            stopLat={stopData.stop_lat}
+            stopLon={stopData.stop_lon}
+            stopName={stopData.stop_name}
+            bus={nextBus}
+            shapePoints={shapePoints}
+          />
+        </div>
       )}
 
       {/* Upcoming */}
       {arrivals.length > 1 && (
-        <div className="rounded-3xl border-2 border-line bg-surface p-4 shadow-card">
-          <h3 className="text-xs font-extrabold text-primary-700 uppercase mb-2 tracking-wider">
+        <Card variant="glass" className="animate-fade-up">
+          <h3 className="text-xs font-extrabold text-cyan-light uppercase mb-2 tracking-wider">
             Prochains passages
           </h3>
           <div className="space-y-2">
@@ -195,7 +205,7 @@ function FavoriteMapInner() {
                 <span className="text-ink2 font-semibold text-sm truncate">→ {a.headsign}</span>
                 <div className="flex items-center gap-2 shrink-0">
                   {Math.abs(a.delaySeconds) > 60 && (
-                    <span className={cn('text-xs font-bold', delayColor(a.delaySeconds))}>
+                    <span className={cn('text-xs font-bold', delayColorClass(a.delaySeconds))}>
                       {a.delaySeconds > 0 ? '+' : ''}
                       {Math.round(a.delaySeconds / 60)}m
                     </span>
@@ -207,7 +217,7 @@ function FavoriteMapInner() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   )

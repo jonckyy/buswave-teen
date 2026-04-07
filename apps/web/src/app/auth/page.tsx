@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, Loader2, Mail, Lock, ArrowRight } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Mail, Lock, ArrowRight, Bus } from 'lucide-react'
 import { createSupabaseClient } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { GradientText } from '@/components/ui/GradientText'
 import { cn } from '@/lib/utils'
 
 type View = 'signin' | 'signup' | 'forgot'
@@ -69,15 +70,17 @@ export default function AuthPage() {
 
   return (
     <div className="flex min-h-[70vh] items-center justify-center">
-      <div className="w-full max-w-md space-y-5">
+      <div className="w-full max-w-md space-y-5 animate-fade-up">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-primary-600 text-white shadow-pop">
-            <span className="text-4xl">🚌</span>
+          <div className="relative inline-block mb-4">
+            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-btn-primary shadow-glow animate-pulse-glow">
+              <Bus className="h-10 w-10 text-white" strokeWidth={2.5} />
+            </div>
           </div>
-          <h1 className="text-3xl font-extrabold text-ink">
+          <GradientText as="h1" className="text-3xl font-extrabold tracking-tight block">
             {view === 'signin' ? 'Re-bonjour !' : view === 'signup' ? 'Salut !' : 'Mot de passe oublié'}
-          </h1>
+          </GradientText>
           <p className="text-ink2 font-medium mt-1">
             {view === 'signin'
               ? 'Connecte-toi pour retrouver tes favoris'
@@ -87,26 +90,21 @@ export default function AuthPage() {
           </p>
         </div>
 
-        {/* Form */}
-        <Card variant="pop">
+        <Card variant="glow">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Banner */}
             {banner && (
               <div
                 className={cn(
-                  'rounded-2xl border-2 p-3 text-sm font-bold text-center',
-                  banner.type === 'error'
-                    ? 'bg-coral-50 border-coral-400 text-rose-600'
-                    : 'bg-lime-50 border-lime-400 text-lime-600'
+                  'rounded-2xl glass-strong p-3 text-sm font-bold text-center',
+                  banner.type === 'error' ? 'text-rose-light' : 'text-lime-light'
                 )}
               >
                 {banner.message}
               </div>
             )}
 
-            {/* Email */}
             <div>
-              <label className="block text-sm font-bold text-ink mb-1.5">Email</label>
+              <label className="block text-sm font-bold text-ink2 mb-1.5">Email</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-ink3" strokeWidth={2.5} />
                 <input
@@ -115,15 +113,14 @@ export default function AuthPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="toi@email.com"
                   autoComplete="email"
-                  className="w-full h-14 rounded-2xl border-2 border-line bg-surface pl-12 pr-4 text-base font-semibold text-ink placeholder:text-ink3 focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100"
+                  className="w-full h-14 rounded-2xl glass pl-12 pr-4 text-base font-semibold text-ink placeholder:text-ink3 focus:outline-none focus:shadow-glow"
                 />
               </div>
             </div>
 
-            {/* Password */}
             {view !== 'forgot' && (
               <div>
-                <label className="block text-sm font-bold text-ink mb-1.5">Mot de passe</label>
+                <label className="block text-sm font-bold text-ink2 mb-1.5">Mot de passe</label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-ink3" strokeWidth={2.5} />
                   <input
@@ -132,12 +129,12 @@ export default function AuthPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     autoComplete={view === 'signup' ? 'new-password' : 'current-password'}
-                    className="w-full h-14 rounded-2xl border-2 border-line bg-surface pl-12 pr-12 text-base font-semibold text-ink placeholder:text-ink3 focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100"
+                    className="w-full h-14 rounded-2xl glass pl-12 pr-12 text-base font-semibold text-ink placeholder:text-ink3 focus:outline-none focus:shadow-glow"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPwd((s) => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-ink2 hover:text-ink"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-ink3 hover:text-ink"
                     tabIndex={-1}
                   >
                     {showPwd ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -146,7 +143,6 @@ export default function AuthPage() {
               </div>
             )}
 
-            {/* Submit button */}
             <Button
               type="submit"
               variant="primary"
@@ -158,24 +154,15 @@ export default function AuthPage() {
               {view === 'signin' ? 'Se connecter' : view === 'signup' ? 'Créer mon compte' : 'Envoyer le lien'}
             </Button>
 
-            {/* Switch view */}
             <div className="text-center text-sm pt-1">
               {view === 'signin' && (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => setView('forgot')}
-                    className="text-primary-600 font-bold hover:underline"
-                  >
+                  <button type="button" onClick={() => setView('forgot')} className="text-cyan-light font-bold hover:underline">
                     Mot de passe oublié ?
                   </button>
                   <p className="text-ink2 font-medium mt-2">
                     Pas encore de compte ?{' '}
-                    <button
-                      type="button"
-                      onClick={() => setView('signup')}
-                      className="text-primary-600 font-extrabold hover:underline"
-                    >
+                    <button type="button" onClick={() => setView('signup')} className="text-primary-light font-extrabold hover:underline">
                       Inscris-toi
                     </button>
                   </p>
@@ -184,21 +171,13 @@ export default function AuthPage() {
               {view === 'signup' && (
                 <p className="text-ink2 font-medium">
                   Déjà un compte ?{' '}
-                  <button
-                    type="button"
-                    onClick={() => setView('signin')}
-                    className="text-primary-600 font-extrabold hover:underline"
-                  >
+                  <button type="button" onClick={() => setView('signin')} className="text-primary-light font-extrabold hover:underline">
                     Connecte-toi
                   </button>
                 </p>
               )}
               {view === 'forgot' && (
-                <button
-                  type="button"
-                  onClick={() => setView('signin')}
-                  className="text-primary-600 font-bold hover:underline"
-                >
+                <button type="button" onClick={() => setView('signin')} className="text-cyan-light font-bold hover:underline">
                   ← Retour
                 </button>
               )}

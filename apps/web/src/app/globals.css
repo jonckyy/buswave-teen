@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,34 +7,143 @@
 @import 'leaflet/dist/leaflet.css';
 
 :root {
-  --bg: 250 250 249;
-  --surface: 255 255 255;
-  --ink: 15 23 42;
-  --primary: 124 58 237;
+  --bg-deep: 11 11 46;
+  --bg-mid: 26 11 61;
+  --primary: 167 139 250;
+  --cyan: 34 211 238;
+  --magenta: 236 72 153;
 }
 
 * {
   -webkit-tap-highlight-color: transparent;
 }
 
-html {
-  font-family: 'Baloo 2', system-ui, sans-serif;
-  background: #FAFAF9;
-  color: #0F172A;
+html, body {
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #F1F5F9;
+  background: #0B0B2E;
+  min-height: 100dvh;
 }
 
 body {
-  background: #FAFAF9;
-  color: #0F172A;
+  /* Layered aurora background — fixed so scroll feels deep */
+  background:
+    radial-gradient(circle at 30% 12%, rgba(168, 139, 250, 0.25), transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(34, 211, 238, 0.18), transparent 55%),
+    radial-gradient(circle at 50% 100%, rgba(236, 72, 153, 0.14), transparent 60%),
+    linear-gradient(180deg, #1A0B3D 0%, #0B0B2E 60%, #06061A 100%);
+  background-attachment: fixed;
+  background-size: cover;
   overscroll-behavior-y: contain;
 }
 
-/* Bigger touch targets on mobile */
 button, a, input, select {
   touch-action: manipulation;
 }
 
+/* Selection */
+::selection {
+  background: rgba(168, 139, 250, 0.4);
+  color: #F1F5F9;
+}
+
+/* Scrollbar (subtle) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
 @layer utilities {
+  /* Glass surfaces */
+  .glass {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+  }
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.09);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+  }
+  .glass-deep {
+    background: rgba(11, 11, 46, 0.7);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+  }
+
+  /* Gradient border via mask trick */
+  .gradient-border {
+    position: relative;
+  }
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(168, 139, 250, 0.6), rgba(34, 211, 238, 0.4), rgba(236, 72, 153, 0.5));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Gradient text */
+  .text-gradient {
+    background-image: linear-gradient(135deg, #C4B5FD 0%, #67E8F9 50%, #F472B6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-gradient-cyan {
+    background-image: linear-gradient(135deg, #67E8F9 0%, #A78BFA 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Glow filters for icons */
+  .glow-purple {
+    filter: drop-shadow(0 0 8px rgba(168, 139, 250, 0.6));
+  }
+  .glow-cyan {
+    filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.6));
+  }
+
+  /* Press feedback */
+  .pressable {
+    transition: transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 200ms ease-out;
+  }
+  .pressable:active {
+    transform: scale(0.95);
+  }
+
+  /* Skeleton shimmer with aurora colors */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(168, 139, 250, 0.18) 50%,
+      rgba(255, 255, 255, 0.04) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+
+  /* Hide scrollbar */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -43,27 +152,31 @@ button, a, input, select {
     display: none;
   }
 
-  /* Press feedback for tappable elements */
-  .pressable {
-    transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  .pressable:active {
-    transform: scale(0.94);
-  }
-
-  /* Skeleton shimmer */
-  .skeleton {
-    background: linear-gradient(
-      90deg,
-      rgba(226, 232, 240, 0.4) 0%,
-      rgba(196, 181, 253, 0.5) 50%,
-      rgba(226, 232, 240, 0.4) 100%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 1.5s linear infinite;
+  /* Safe area padding for bottom nav */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 
+/* Dark Leaflet attribution */
+.leaflet-control-attribution {
+  background: rgba(11, 11, 46, 0.6) !important;
+  color: rgba(241, 245, 249, 0.6) !important;
+  font-size: 9px !important;
+  padding: 2px 6px !important;
+  border-radius: 8px 0 0 0 !important;
+}
+.leaflet-control-attribution a {
+  color: rgba(168, 139, 250, 0.8) !important;
+}
+.leaflet-control-zoom a {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #F1F5F9 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(12px);
+}
+
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

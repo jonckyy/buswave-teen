@@ -17,7 +17,7 @@ interface Props {
   onClose: () => void
 }
 
-export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClose }: Props) {
+export function NotificationSettingsPanel({ favoriteId, stopName, onClose }: Props) {
   const { settings, isLoading, updateSettings, isUpdating, error } = useNotificationSettings(favoriteId)
   const { supported, permission, isSubscribed, subscribe } = usePushNotifications()
   const flags = useFeatureFlags()
@@ -82,53 +82,51 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
 
   const modal = (
     <div
-      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-ink/60 backdrop-blur-sm p-0 sm:p-4"
+      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-bg-deep/70 backdrop-blur-md p-0 sm:p-4"
       onClick={handleBackdrop}
       onTouchEnd={handleBackdrop}
     >
       <div
-        className="w-full max-w-md rounded-t-3xl sm:rounded-3xl border-2 border-line bg-surface p-6 space-y-5 max-h-[90vh] overflow-y-auto shadow-pop animate-slide-up"
+        className="w-full max-w-md rounded-t-3xl sm:rounded-3xl glass-strong shadow-glass-lg p-6 space-y-5 max-h-[90vh] overflow-y-auto animate-fade-up"
         onClick={stopProp}
         onTouchEnd={stopProp}
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-600 text-white shrink-0">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-btn-lime text-bg-deep shadow-glow-lime shrink-0">
               <Bell className="h-5 w-5" strokeWidth={2.5} />
             </div>
             <div className="min-w-0">
               <h2 className="text-lg font-extrabold text-ink">Notifications</h2>
-              <p className="text-sm text-ink2 font-medium truncate">{stopName}</p>
+              <p className="text-sm text-ink3 font-medium truncate">{stopName}</p>
             </div>
           </div>
           <button
             onClick={(e) => { stopProp(e); onClose() }}
-            className="flex h-10 w-10 items-center justify-center rounded-2xl bg-coral-50 text-rose-600 hover:bg-coral-100 active:scale-90 transition-transform shrink-0"
+            className="flex h-10 w-10 items-center justify-center rounded-2xl glass text-rose-light hover:shadow-glow-magenta active:scale-90 transition-all shrink-0"
           >
             <X className="h-5 w-5" strokeWidth={3} />
           </button>
         </div>
 
-        {/* Unsupported / denied */}
         {!supported ? (
-          <div className="rounded-2xl bg-coral-50 border-2 border-coral-400 p-4">
-            <p className="text-sm font-bold text-rose-600">Les notifications push ne sont pas supportées sur ce navigateur.</p>
+          <div className="rounded-2xl glass p-4">
+            <p className="text-sm font-bold text-rose-light">Les notifications push ne sont pas supportées sur ce navigateur.</p>
           </div>
         ) : permission === 'denied' ? (
-          <div className="rounded-2xl bg-coral-50 border-2 border-coral-400 p-4">
-            <p className="text-sm font-bold text-rose-600">Notifications bloquées — autorise-les dans les paramètres du navigateur.</p>
+          <div className="rounded-2xl glass p-4">
+            <p className="text-sm font-bold text-rose-light">Notifications bloquées — autorise-les dans les paramètres du navigateur.</p>
           </div>
         ) : isLoading ? (
           <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-primary-500" />
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : (
           <>
-            {/* Time alert */}
             <ToggleCard
               icon={<Clock className="h-5 w-5" strokeWidth={2.5} />}
-              iconBg="bg-primary-100 text-primary-700"
+              accent="primary"
               title="Alerte temps"
               subtitle="Me prévenir X minutes avant l'arrivée"
               enabled={timeEnabled}
@@ -140,7 +138,7 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
                     {timeMinutes.slice().sort((a, b) => b - a).map((m) => (
                       <span
                         key={m}
-                        className="inline-flex items-center gap-1 rounded-pill bg-primary-600 text-white px-3 py-1 text-xs font-extrabold"
+                        className="inline-flex items-center gap-1 rounded-pill bg-btn-primary text-white px-3 py-1 text-xs font-extrabold shadow-glow-sm"
                       >
                         {m} min
                         <button
@@ -159,17 +157,17 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
                       <button
                         type="button"
                         onClick={(e) => { stopProp(e); setAddingTime(true) }}
-                        className="inline-flex items-center gap-1 rounded-pill border-2 border-dashed border-primary-300 text-primary-600 px-3 py-1 text-xs font-extrabold hover:bg-primary-50 active:scale-95"
+                        className="inline-flex items-center gap-1 rounded-pill border border-dashed border-primary/40 text-primary-light px-3 py-1 text-xs font-extrabold hover:bg-white/[0.05] active:scale-95"
                       >
                         <Plus className="h-3 w-3" strokeWidth={3} /> Ajouter
                       </button>
                     )}
                   </div>
                   {addingTime && (
-                    <div className="space-y-2 rounded-2xl border-2 border-primary-200 bg-primary-50 p-3">
+                    <div className="space-y-2 rounded-2xl glass-strong p-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-ink2">Nouvelle alerte</span>
-                        <span className="text-lg font-extrabold text-primary-700">{newTimeValue} min</span>
+                        <span className="text-lg font-extrabold text-cyan-light">{newTimeValue} min</span>
                       </div>
                       <input
                         type="range"
@@ -177,7 +175,7 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
                         max={30}
                         value={newTimeValue}
                         onChange={(e) => setNewTimeValue(Number(e.target.value))}
-                        className="w-full accent-primary-600"
+                        className="w-full accent-cyan"
                       />
                       <div className="flex gap-2">
                         <button
@@ -190,7 +188,7 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
                             setAddingTime(false)
                             setNewTimeValue(5)
                           }}
-                          className="flex-1 rounded-pill bg-primary-600 text-white text-xs font-extrabold py-2 active:scale-95"
+                          className="flex-1 rounded-pill bg-btn-primary text-white text-xs font-extrabold py-2 active:scale-95 shadow-glow-sm"
                         >
                           Ajouter {newTimeValue} min
                         </button>
@@ -208,11 +206,10 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
               )}
             </ToggleCard>
 
-            {/* Distance alert */}
             {triggers.includes('distance') && (
               <ToggleCard
                 icon={<MapPin className="h-5 w-5" strokeWidth={2.5} />}
-                iconBg="bg-lime-100 text-lime-600"
+                accent="lime"
                 title="Alerte distance"
                 subtitle="Me prévenir quand le bus est à X mètres"
                 enabled={distanceEnabled}
@@ -232,11 +229,10 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
               </ToggleCard>
             )}
 
-            {/* Off-route alert */}
             {triggers.includes('offroute') && (
               <ToggleCard
                 icon={<AlertTriangle className="h-5 w-5" strokeWidth={2.5} />}
-                iconBg="bg-coral-50 text-rose-600"
+                accent="rose"
                 title="Alerte déviation"
                 subtitle="Quand le bus s'écarte de son trajet"
                 enabled={offrouteEnabled}
@@ -256,14 +252,12 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
               </ToggleCard>
             )}
 
-            {/* Error */}
             {(saveError || error) && (
-              <div className="rounded-2xl bg-coral-50 border-2 border-coral-400 p-3">
-                <p className="text-sm font-bold text-rose-600">{saveError ?? error?.message}</p>
+              <div className="rounded-2xl glass p-3">
+                <p className="text-sm font-bold text-rose-light">{saveError ?? error?.message}</p>
               </div>
             )}
 
-            {/* Save */}
             <Button
               variant="primary"
               size="lg"
@@ -285,7 +279,7 @@ export function NotificationSettingsPanel({ favoriteId, stopName, routeId, onClo
 
 function ToggleCard({
   icon,
-  iconBg,
+  accent,
   title,
   subtitle,
   enabled,
@@ -293,35 +287,52 @@ function ToggleCard({
   children,
 }: {
   icon: React.ReactNode
-  iconBg: string
+  accent: 'primary' | 'cyan' | 'lime' | 'rose'
   title: string
   subtitle: string
   enabled: boolean
   onToggle: (v: boolean) => void
   children?: React.ReactNode
 }) {
+  const accentBg: Record<typeof accent, string> = {
+    primary: 'bg-btn-primary',
+    cyan: 'bg-btn-cyan',
+    lime: 'bg-btn-lime',
+    rose: 'bg-btn-rose',
+  }
+  const accentShadow: Record<typeof accent, string> = {
+    primary: 'shadow-glow-sm',
+    cyan: 'shadow-glow-cyan',
+    lime: 'shadow-glow-lime',
+    rose: 'shadow-glow-magenta',
+  }
   return (
     <div
       className={cn(
-        'rounded-3xl border-2 p-4 transition-all',
-        enabled ? 'border-primary-400 bg-primary-50' : 'border-line bg-surface'
+        'rounded-3xl glass p-4 transition-all',
+        enabled && 'shadow-glow-sm'
       )}
     >
       <label className="flex items-center justify-between gap-3 cursor-pointer">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl shrink-0', iconBg)}>
+          <div
+            className={cn(
+              'flex h-11 w-11 items-center justify-center rounded-2xl text-white shrink-0',
+              accentBg[accent],
+              enabled && accentShadow[accent]
+            )}
+          >
             {icon}
           </div>
           <div className="min-w-0">
             <p className="font-extrabold text-ink truncate">{title}</p>
-            <p className="text-xs text-ink2 font-medium truncate">{subtitle}</p>
+            <p className="text-xs text-ink3 font-medium truncate">{subtitle}</p>
           </div>
         </div>
-        {/* iOS-style switch */}
         <div
           className={cn(
             'relative h-7 w-12 rounded-pill transition-colors shrink-0',
-            enabled ? 'bg-primary-600' : 'bg-line'
+            enabled ? `${accentBg[accent]} ${accentShadow[accent]}` : 'bg-line'
           )}
         >
           <input
@@ -376,7 +387,7 @@ function SliderField({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className={cn('w-full', accent === 'lime' ? 'accent-lime-500' : 'accent-rose-500')}
+        className={cn('w-full', accent === 'lime' ? 'accent-lime' : 'accent-rose')}
       />
       <div className="flex justify-between text-[10px] text-ink3 font-bold">
         <span>{min}{unit}</span>

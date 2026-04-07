@@ -21,6 +21,7 @@ import { createSupabaseClient } from '@/lib/supabase'
 import { api } from '@/lib/api'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { GradientText } from '@/components/ui/GradientText'
 import { cn } from '@/lib/utils'
 
 export default function SettingsPage() {
@@ -69,7 +70,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
   }
@@ -125,36 +126,36 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-3xl font-extrabold text-ink">Mon compte</h1>
+      <GradientText as="h1" className="text-3xl font-extrabold tracking-tight block animate-fade-up">
+        Mon compte
+      </GradientText>
 
       {/* Profile card */}
-      <Card variant="pop">
+      <Card variant="glow" className="animate-fade-up">
         <div className="flex items-center gap-4 mb-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-primary-600 text-white shadow-pop shrink-0">
-            <User className="h-8 w-8" strokeWidth={2.5} />
+          <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-btn-primary shadow-glow shrink-0">
+            <User className="h-8 w-8 text-white" strokeWidth={2.5} />
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-extrabold text-ink truncate">{user.email}</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              {isAdmin && <Shield className="h-3.5 w-3.5 text-sun-500" strokeWidth={2.5} />}
+              {isAdmin && <Shield className="h-3.5 w-3.5 text-sun glow-purple" strokeWidth={2.5} />}
               <span className="text-sm text-ink2 font-bold uppercase">{role ?? 'user'}</span>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 pt-4 border-t-2 border-line">
-          <div className="rounded-2xl bg-primary-50 p-3">
-            <p className="text-[10px] font-extrabold text-primary-700 uppercase mb-1">Favoris</p>
+        <div className="grid grid-cols-2 gap-3 pt-4 border-t border-line">
+          <div className="rounded-2xl glass p-3">
+            <p className="text-[10px] font-extrabold text-primary-light uppercase mb-1">Favoris</p>
             <div className="flex items-center gap-1.5">
-              <Star className="h-4 w-4 text-primary-600" strokeWidth={2.5} />
+              <Star className="h-4 w-4 text-sun" strokeWidth={2.5} />
               <span className="text-xl font-extrabold text-ink">{favorites.length}</span>
             </div>
           </div>
           {joinedAt && (
-            <div className="rounded-2xl bg-secondary-100 p-3">
-              <p className="text-[10px] font-extrabold text-secondary-700 uppercase mb-1">
-                Membre depuis
-              </p>
+            <div className="rounded-2xl glass p-3">
+              <p className="text-[10px] font-extrabold text-cyan-light uppercase mb-1">Membre depuis</p>
               <p className="text-sm font-extrabold text-ink truncate">{joinedAt}</p>
             </div>
           )}
@@ -162,10 +163,10 @@ export default function SettingsPage() {
       </Card>
 
       {/* Notifications */}
-      <Card variant="pop">
+      <Card variant="glass" className="animate-fade-up">
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-lime-100 text-lime-600">
-            <Bell className="h-5 w-5" strokeWidth={2.5} />
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-btn-lime shadow-glow-lime">
+            <Bell className="h-5 w-5 text-bg-deep" strokeWidth={2.5} />
           </div>
           <h2 className="text-lg font-extrabold text-ink">Notifications push</h2>
         </div>
@@ -173,24 +174,21 @@ export default function SettingsPage() {
         {!pushSupported ? (
           <p className="text-sm font-bold text-ink2">Non supporté sur ce navigateur</p>
         ) : pushPermission === 'denied' ? (
-          <div className="rounded-2xl bg-coral-50 border-2 border-coral-400 p-3 flex items-center gap-2">
-            <BellOff className="h-4 w-4 text-rose-600" strokeWidth={2.5} />
-            <span className="text-sm font-bold text-rose-600">
+          <div className="rounded-2xl glass-strong p-3 flex items-center gap-2">
+            <BellOff className="h-4 w-4 text-rose-light" strokeWidth={2.5} />
+            <span className="text-sm font-bold text-rose-light">
               Notifications bloquées — autorise-les dans les paramètres
             </span>
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Toggle */}
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <p className="font-extrabold text-ink">
                   {isSubscribed ? 'Activées' : 'Désactivées'}
                 </p>
-                <p className="text-xs text-ink2 font-medium">
-                  {isSubscribed
-                    ? 'Tu reçois des alertes pour tes favoris'
-                    : 'Active pour recevoir les alertes'}
+                <p className="text-xs text-ink3 font-medium">
+                  {isSubscribed ? 'Tu reçois des alertes pour tes favoris' : 'Active pour recevoir les alertes'}
                 </p>
               </div>
               <Button
@@ -200,44 +198,39 @@ export default function SettingsPage() {
                   try {
                     if (isSubscribed) await unsubscribe()
                     else await subscribe()
-                  } catch {
-                    /* handled by hook */
-                  }
+                  } catch { /* */ }
                 }}
               >
                 {isSubscribed ? 'Désactiver' : 'Activer'}
               </Button>
             </div>
 
-            {/* Quiet hours */}
-            <div className="rounded-2xl bg-primary-50 border-2 border-primary-200 p-4 space-y-3">
+            <div className="rounded-2xl glass p-4 space-y-3">
               <div className="flex items-center gap-2">
-                <Moon className="h-4 w-4 text-primary-700" strokeWidth={2.5} />
+                <Moon className="h-4 w-4 text-primary-light" strokeWidth={2.5} />
                 <span className="font-extrabold text-ink text-sm">Heures silencieuses</span>
               </div>
-              <p className="text-xs text-ink2 font-medium">
-                Aucune notif pendant cette période
-              </p>
+              <p className="text-xs text-ink3 font-medium">Aucune notif pendant cette période</p>
               {quietLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin text-primary-500" />
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
               ) : (
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="flex items-center gap-1.5">
-                    <label className="text-xs text-ink2 font-bold">De</label>
+                    <label className="text-xs text-ink3 font-bold">De</label>
                     <input
                       type="time"
                       value={quietStart}
                       onChange={(e) => setQuietStart(e.target.value)}
-                      className="rounded-xl border-2 border-line bg-surface px-3 py-1.5 text-sm font-bold text-ink focus:outline-none focus:border-primary-400"
+                      className="rounded-xl glass-strong px-3 py-1.5 text-sm font-bold text-ink focus:outline-none"
                     />
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <label className="text-xs text-ink2 font-bold">à</label>
+                    <label className="text-xs text-ink3 font-bold">à</label>
                     <input
                       type="time"
                       value={quietEnd}
                       onChange={(e) => setQuietEnd(e.target.value)}
-                      className="rounded-xl border-2 border-line bg-surface px-3 py-1.5 text-sm font-bold text-ink focus:outline-none focus:border-primary-400"
+                      className="rounded-xl glass-strong px-3 py-1.5 text-sm font-bold text-ink focus:outline-none"
                     />
                   </div>
                   <Button
@@ -251,9 +244,7 @@ export default function SettingsPage() {
                         if (session?.access_token) {
                           await api.updateQuietHours(quietStart, quietEnd, session.access_token)
                         }
-                      } catch {
-                        /* ignore */
-                      }
+                      } catch { /* */ }
                       setQuietSaving(false)
                     }}
                   >
@@ -263,14 +254,11 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* Reset */}
-            <div className="rounded-2xl bg-coral-50 border-2 border-coral-400 p-4">
+            <div className="rounded-2xl glass-strong p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="font-extrabold text-rose-600 text-sm">Réinitialiser</p>
-                  <p className="text-xs text-ink2 font-medium">
-                    Supprime tous les abonnements et paramètres
-                  </p>
+                  <p className="font-extrabold text-rose-light text-sm">Réinitialiser</p>
+                  <p className="text-xs text-ink3 font-medium">Supprime tous les abonnements et paramètres</p>
                 </div>
                 <Button
                   variant="danger"
@@ -286,11 +274,11 @@ export default function SettingsPage() {
         )}
       </Card>
 
-      {/* Password change */}
-      <Card variant="pop">
+      {/* Password */}
+      <Card variant="glass" className="animate-fade-up">
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-secondary-100 text-secondary-700">
-            <Lock className="h-5 w-5" strokeWidth={2.5} />
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-btn-cyan shadow-glow-cyan">
+            <Lock className="h-5 w-5 text-white" strokeWidth={2.5} />
           </div>
           <h2 className="text-lg font-extrabold text-ink">Mot de passe</h2>
         </div>
@@ -298,10 +286,8 @@ export default function SettingsPage() {
         {banner && (
           <div
             className={cn(
-              'mb-3 rounded-2xl border-2 p-3 text-sm font-bold',
-              banner.type === 'error'
-                ? 'bg-coral-50 border-coral-400 text-rose-600'
-                : 'bg-lime-50 border-lime-400 text-lime-600'
+              'mb-3 rounded-2xl glass-strong p-3 text-sm font-bold',
+              banner.type === 'error' ? 'text-rose-light' : 'text-lime-light'
             )}
           >
             {banner.message}
@@ -315,7 +301,7 @@ export default function SettingsPage() {
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             placeholder="Nouveau mot de passe"
-            className="w-full h-12 rounded-2xl border-2 border-line bg-surface px-4 text-base font-semibold text-ink placeholder:text-ink3 focus:outline-none focus:border-primary-400"
+            className="w-full h-12 rounded-2xl glass px-4 text-base font-semibold text-ink placeholder:text-ink3 focus:outline-none focus:shadow-glow"
           />
           <input
             type="password"
@@ -323,7 +309,7 @@ export default function SettingsPage() {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="Confirmer"
-            className="w-full h-12 rounded-2xl border-2 border-line bg-surface px-4 text-base font-semibold text-ink placeholder:text-ink3 focus:outline-none focus:border-primary-400"
+            className="w-full h-12 rounded-2xl glass px-4 text-base font-semibold text-ink placeholder:text-ink3 focus:outline-none focus:shadow-glow"
           />
           <Button
             type="submit"

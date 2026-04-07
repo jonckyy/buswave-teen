@@ -3,7 +3,7 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-type Variant = 'primary' | 'secondary' | 'lime' | 'ghost' | 'danger'
+type Variant = 'primary' | 'cyan' | 'lime' | 'glass' | 'ghost' | 'danger'
 type Size = 'sm' | 'md' | 'lg'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -15,11 +15,18 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-primary-600 text-white shadow-pop hover:bg-primary-700 active:shadow-none active:translate-y-1.5',
-  secondary: 'bg-secondary-500 text-white shadow-pop-cyan hover:bg-secondary-600 active:shadow-none active:translate-y-1.5',
-  lime: 'bg-lime-500 text-ink shadow-pop-lime hover:bg-lime-600 active:shadow-none active:translate-y-1.5',
-  ghost: 'bg-transparent text-ink hover:bg-primary-50',
-  danger: 'bg-rose-500 text-white shadow-pop hover:bg-rose-600 active:shadow-none active:translate-y-1.5',
+  primary:
+    'bg-btn-primary text-white shadow-glow hover:shadow-glow-magenta hover:scale-[1.02]',
+  cyan:
+    'bg-btn-cyan text-white shadow-glow-cyan hover:scale-[1.02]',
+  lime:
+    'bg-btn-lime text-bg-deep shadow-glow-lime hover:scale-[1.02] font-extrabold',
+  glass:
+    'glass-strong text-ink hover:bg-white/[0.14]',
+  ghost:
+    'bg-transparent text-ink2 hover:text-ink hover:bg-white/[0.06]',
+  danger:
+    'bg-btn-rose text-white shadow-glow-magenta hover:scale-[1.02]',
 }
 
 const sizes: Record<Size, string> = {
@@ -38,9 +45,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled || loading}
       className={cn(
         'inline-flex items-center justify-center gap-2 rounded-pill font-bold',
-        'transition-all duration-150',
-        'disabled:opacity-40 disabled:pointer-events-none',
-        'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-300',
+        'transition-all duration-200 active:scale-95',
+        'disabled:opacity-40 disabled:pointer-events-none disabled:saturate-50',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-deep',
         variants[variant],
         sizes[size],
         className

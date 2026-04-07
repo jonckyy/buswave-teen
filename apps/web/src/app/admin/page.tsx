@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -20,11 +20,12 @@ import { createSupabaseClient } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Pill } from '@/components/ui/Pill'
+import { GradientText } from '@/components/ui/GradientText'
 import { cn } from '@/lib/utils'
-import type { AdminUserRow, RoleConfig, RoleConfigUpdate, UserRole } from '@buswave/shared'
+import type { AdminUserRow, RoleConfigUpdate } from '@buswave/shared'
 
 export default function AdminPage() {
-  const { user, isAdmin, loading: authLoading } = useUser()
+  const { isAdmin, loading: authLoading } = useUser()
   const router = useRouter()
 
   if (!authLoading && !isAdmin) {
@@ -35,17 +36,19 @@ export default function AdminPage() {
   if (authLoading) {
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
   }
 
   return (
     <div className="space-y-5">
-      <div>
+      <div className="animate-fade-up">
         <div className="flex items-center gap-2">
-          <Shield className="h-7 w-7 text-sun-500" strokeWidth={2.5} />
-          <h1 className="text-3xl font-extrabold text-ink">Admin</h1>
+          <Shield className="h-7 w-7 text-sun glow-purple" strokeWidth={2.5} />
+          <GradientText as="h1" className="text-3xl font-extrabold tracking-tight">
+            Admin
+          </GradientText>
         </div>
         <p className="text-ink2 font-medium">Gestion des utilisateurs et rôles</p>
       </div>
@@ -95,20 +98,20 @@ function UsersSection() {
   }
 
   return (
-    <Card variant="pop">
+    <Card variant="glass" className="animate-fade-up">
       <div className="flex items-center gap-3 mb-4">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-100 text-primary-700">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-btn-primary text-white shadow-glow">
           <Users className="h-5 w-5" strokeWidth={2.5} />
         </div>
         <div className="flex-1">
           <h2 className="font-extrabold text-ink">Utilisateurs</h2>
-          <p className="text-xs text-ink2 font-bold">{users.length} compte{users.length !== 1 ? 's' : ''}</p>
+          <p className="text-xs text-ink3 font-bold">{users.length} compte{users.length !== 1 ? 's' : ''}</p>
         </div>
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-primary-500" />
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
       ) : (
         <div className="space-y-2">
@@ -147,8 +150,8 @@ function UserRow({
   return (
     <div
       className={cn(
-        'rounded-2xl border-2 transition-all',
-        expanded ? 'bg-primary-50 border-primary-300' : 'bg-bg border-line'
+        'rounded-2xl glass transition-all',
+        expanded && 'shadow-glow-sm'
       )}
     >
       <button
@@ -158,15 +161,15 @@ function UserRow({
         <div className="flex-1 min-w-0">
           <p className="font-extrabold text-ink truncate text-sm">{u.email}</p>
           <div className="flex items-center gap-2 mt-1">
-            <Pill variant={u.role === 'admin' ? 'sun' : u.role === 'editor' ? 'secondary' : 'ink'} size="sm">
+            <Pill variant={u.role === 'admin' ? 'sun' : u.role === 'editor' ? 'cyan' : 'ink'} size="sm">
               {u.role}
             </Pill>
-            <span className="text-[10px] text-ink2 font-bold">
+            <span className="text-[10px] text-ink3 font-bold">
               ⭐ {u.favoritesCount} · 🔔 {u.pushSubscriptionsCount}
             </span>
           </div>
         </div>
-        <div className="text-ink2">
+        <div className="text-ink3">
           {expanded ? <ChevronUp className="h-5 w-5" strokeWidth={2.5} /> : <ChevronDown className="h-5 w-5" strokeWidth={2.5} />}
         </div>
       </button>
@@ -179,12 +182,12 @@ function UserRow({
               value={u.role}
               onChange={(e) => onRoleChange(u.id, e.target.value)}
               disabled={updatingId === u.id}
-              className="rounded-xl border-2 border-line bg-surface px-3 py-1.5 text-sm font-bold text-ink"
+              className="rounded-xl glass px-3 py-1.5 text-sm font-bold text-ink"
             >
-              <option value="user">user</option>
-              <option value="editor">editor</option>
+              <option value="user" className="bg-bg-deep">user</option>
+              <option value="editor" className="bg-bg-deep">editor</option>
             </select>
-            {updatingId === u.id && <Loader2 className="h-3 w-3 animate-spin text-primary-500" />}
+            {updatingId === u.id && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
           </div>
           <ClearNotificationsButton userId={u.id} getToken={getToken} />
         </div>
@@ -250,8 +253,7 @@ function RoleConfigSection({ role }: { role: 'user' | 'editor' }) {
   const [showLivePage, setShowLivePage] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  // Sync from fetched config
-  useMemo(() => {
+  useEffect(() => {
     if (config) {
       setMaxFavorites(config.maxFavorites)
       setMaxPushFavorites(config.maxPushFavorites)
@@ -281,19 +283,19 @@ function RoleConfigSection({ role }: { role: 'user' | 'editor' }) {
   }
 
   return (
-    <Card variant="pop">
+    <Card variant="glass" className="animate-fade-up">
       <div className="flex items-center gap-3 mb-4">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary-100 text-secondary-700">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-btn-cyan text-white shadow-glow-cyan">
           <SettingsIcon className="h-5 w-5" strokeWidth={2.5} />
         </div>
         <div>
           <h2 className="font-extrabold text-ink">Config "{role}"</h2>
-          <p className="text-xs text-ink2 font-bold">Limites et fonctionnalités</p>
+          <p className="text-xs text-ink3 font-bold">Limites et fonctionnalités</p>
         </div>
       </div>
 
       {isLoading ? (
-        <Loader2 className="h-5 w-5 animate-spin text-primary-500 mx-auto" />
+        <Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" />
       ) : !config ? (
         <p className="text-sm text-ink2">Aucune config</p>
       ) : (
@@ -331,7 +333,7 @@ function NumField({
   icon: React.ReactNode
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-2xl bg-bg border-2 border-line p-3">
+    <div className="flex items-center justify-between gap-3 rounded-2xl glass p-3">
       <div className="flex items-center gap-2 text-ink2">
         {icon}
         <span className="text-sm font-bold">{label}</span>
@@ -340,7 +342,7 @@ function NumField({
         type="number"
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-20 rounded-xl border-2 border-line bg-surface px-3 py-1.5 text-sm font-extrabold text-ink text-center focus:outline-none focus:border-primary-400"
+        className="w-20 rounded-xl glass-strong px-3 py-1.5 text-sm font-extrabold text-ink text-center focus:outline-none focus:shadow-glow-sm"
       />
     </div>
   )
@@ -356,12 +358,12 @@ function ToggleField({
   onChange: (v: boolean) => void
 }) {
   return (
-    <label className="flex items-center justify-between gap-3 rounded-2xl bg-bg border-2 border-line p-3 cursor-pointer">
+    <label className="flex items-center justify-between gap-3 rounded-2xl glass p-3 cursor-pointer">
       <span className="text-sm font-bold text-ink">{label}</span>
       <div
         className={cn(
           'relative h-7 w-12 rounded-pill transition-colors shrink-0',
-          value ? 'bg-primary-600' : 'bg-line'
+          value ? 'bg-btn-primary shadow-glow-sm' : 'bg-line'
         )}
       >
         <input

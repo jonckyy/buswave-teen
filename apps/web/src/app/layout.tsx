@@ -5,12 +5,12 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'BusWave',
-  description: 'Suis tes bus TEC en temps réel — version fun',
+  description: 'Suis tes bus TEC en temps réel — version teen',
   manifest: '/manifest.json',
 }
 
 export const viewport: Viewport = {
-  themeColor: '#7C3AED',
+  themeColor: '#0B0B2E',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
@@ -22,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh font-body antialiased">
         <Providers>
           <NavBar />
-          <main className="mx-auto max-w-2xl px-4 pb-24 pt-4 sm:pt-6">
+          <main className="mx-auto max-w-2xl px-4 pb-28 pt-4 sm:pt-6">
             {children}
           </main>
         </Providers>

@@ -6,6 +6,7 @@ import { Lock, Loader2, ArrowRight } from 'lucide-react'
 import { createSupabaseClient } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { GradientText } from '@/components/ui/GradientText'
 import { cn } from '@/lib/utils'
 
 export default function ResetPasswordPage() {
@@ -43,24 +44,24 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="flex min-h-[70vh] items-center justify-center">
-      <div className="w-full max-w-md space-y-5">
+      <div className="w-full max-w-md space-y-5 animate-fade-up">
         <div className="text-center">
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-primary-600 text-white shadow-pop">
-            <Lock className="h-10 w-10" strokeWidth={2.5} />
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-btn-primary shadow-glow animate-pulse-glow">
+            <Lock className="h-10 w-10 text-white" strokeWidth={2.5} />
           </div>
-          <h1 className="text-3xl font-extrabold text-ink">Nouveau mot de passe</h1>
+          <GradientText as="h1" className="text-3xl font-extrabold tracking-tight block">
+            Nouveau mot de passe
+          </GradientText>
           <p className="text-ink2 font-medium mt-1">Choisis un mot de passe sécurisé</p>
         </div>
 
-        <Card variant="pop">
+        <Card variant="glow">
           <form onSubmit={handleSubmit} className="space-y-4">
             {banner && (
               <div
                 className={cn(
-                  'rounded-2xl border-2 p-3 text-sm font-bold text-center',
-                  banner.type === 'error'
-                    ? 'bg-coral-50 border-coral-400 text-rose-600'
-                    : 'bg-lime-50 border-lime-400 text-lime-600'
+                  'rounded-2xl glass-strong p-3 text-sm font-bold text-center',
+                  banner.type === 'error' ? 'text-rose-light' : 'text-lime-light'
                 )}
               >
                 {banner.message}
@@ -73,7 +74,7 @@ export default function ResetPasswordPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Nouveau mot de passe"
               autoComplete="new-password"
-              className="w-full h-14 rounded-2xl border-2 border-line bg-surface px-4 text-base font-semibold text-ink placeholder:text-ink3 focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100"
+              className="w-full h-14 rounded-2xl glass px-4 text-base font-semibold text-ink placeholder:text-ink3 focus:outline-none focus:shadow-glow"
             />
             <input
               type="password"
@@ -81,7 +82,7 @@ export default function ResetPasswordPage() {
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="Confirmer"
               autoComplete="new-password"
-              className="w-full h-14 rounded-2xl border-2 border-line bg-surface px-4 text-base font-semibold text-ink placeholder:text-ink3 focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100"
+              className="w-full h-14 rounded-2xl glass px-4 text-base font-semibold text-ink placeholder:text-ink3 focus:outline-none focus:shadow-glow"
             />
             <Button
               type="submit"

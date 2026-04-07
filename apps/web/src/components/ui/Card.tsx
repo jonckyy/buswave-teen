@@ -4,16 +4,18 @@ import type { HTMLAttributes, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  variant?: 'flat' | 'pop'
+  variant?: 'glass' | 'glow' | 'solid'
   children: ReactNode
 }
 
-export function Card({ variant = 'flat', className, children, ...rest }: CardProps) {
+export function Card({ variant = 'glass', className, children, ...rest }: CardProps) {
   return (
     <div
       className={cn(
-        'rounded-3xl bg-surface border-2 border-line p-5',
-        variant === 'pop' && 'shadow-pop',
+        'relative rounded-3xl p-5 overflow-hidden',
+        variant === 'glass' && 'glass shadow-glass',
+        variant === 'glow' && 'glass gradient-border shadow-glass',
+        variant === 'solid' && 'bg-bg-mid border border-line shadow-glass',
         className
       )}
       {...rest}

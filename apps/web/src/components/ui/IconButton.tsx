@@ -3,24 +3,33 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-type Variant = 'primary' | 'secondary' | 'lime' | 'ghost' | 'danger'
+type Variant = 'primary' | 'cyan' | 'lime' | 'magenta' | 'rose' | 'glass'
+type Size = 'sm' | 'md' | 'lg'
 
 interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant
+  size?: Size
   icon: ReactNode
   label: string
 }
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-primary-100 text-primary-700 hover:bg-primary-200',
-  secondary: 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200',
-  lime: 'bg-lime-100 text-lime-600 hover:bg-lime-200',
-  ghost: 'bg-transparent text-ink2 hover:bg-line',
-  danger: 'bg-coral-50 text-rose-600 hover:bg-coral-100',
+  primary: 'glass text-primary-light hover:shadow-glow hover:border-primary/40',
+  cyan: 'glass text-cyan-light hover:shadow-glow-cyan hover:border-cyan/40',
+  lime: 'glass text-lime hover:shadow-glow-lime hover:border-lime/40',
+  magenta: 'glass text-magenta-light hover:shadow-glow-magenta hover:border-magenta/40',
+  rose: 'glass text-rose-light hover:shadow-glow-magenta hover:border-rose/40',
+  glass: 'glass text-ink2 hover:text-ink hover:border-line/30',
+}
+
+const sizes: Record<Size, string> = {
+  sm: 'h-9 w-9 rounded-2xl',
+  md: 'h-11 w-11 rounded-2xl',
+  lg: 'h-13 w-13 rounded-3xl',
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { variant = 'ghost', icon, label, className, ...rest },
+  { variant = 'glass', size = 'md', icon, label, className, ...rest },
   ref
 ) {
   return (
@@ -29,10 +38,11 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       aria-label={label}
       title={label}
       className={cn(
-        'inline-flex h-12 w-12 items-center justify-center rounded-2xl',
-        'transition-all duration-150 active:scale-90',
-        'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-300',
+        'inline-flex items-center justify-center transition-all duration-200',
+        'active:scale-90',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
         variants[variant],
+        sizes[size],
         className
       )}
       {...rest}

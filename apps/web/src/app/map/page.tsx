@@ -7,15 +7,17 @@ import dynamic from 'next/dynamic'
 import { Search, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import { Pill } from '@/components/ui/Pill'
+import { GradientText } from '@/components/ui/GradientText'
 import type { GtfsRoute } from '@buswave/shared'
 
 const BusMap = dynamic(() => import('@/components/map/BusMap').then((m) => m.BusMap), {
   ssr: false,
   loading: () => (
-    <div className="rounded-3xl border-2 border-line bg-primary-50 animate-pulse" style={{ height: 600 }}>
-      <div className="h-full flex items-center justify-center">
-        <p className="text-ink2 font-bold">Chargement de la carte...</p>
-      </div>
+    <div
+      className="rounded-3xl glass shadow-glass animate-pulse flex items-center justify-center"
+      style={{ height: 600 }}
+    >
+      <p className="text-ink2 font-bold">Chargement de la carte...</p>
     </div>
   ),
 })
@@ -37,7 +39,6 @@ function MapPageInner() {
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
 
-  // Initialize route from URL param
   const { data: initialRouteData } = useQuery({
     queryKey: ['route-live-init', initialRouteId],
     queryFn: () => api.routeLive(initialRouteId!),
@@ -96,8 +97,10 @@ function MapPageInner() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-extrabold text-ink leading-tight">Carte live</h1>
+      <div className="animate-fade-up">
+        <GradientText as="h1" className="text-3xl font-extrabold tracking-tight">
+          Carte live
+        </GradientText>
         {selectedRoute ? (
           <div className="flex items-center gap-2 mt-1">
             <Pill variant="primary" size="md">
@@ -111,13 +114,10 @@ function MapPageInner() {
       </div>
 
       {/* Search autocomplete */}
-      <div className="relative" ref={wrapperRef}>
+      <div className="relative animate-fade-up" ref={wrapperRef}>
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <Search
-              className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-ink3"
-              strokeWidth={2.5}
-            />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-ink3" strokeWidth={2.5} />
             <input
               type="text"
               value={query}
@@ -130,13 +130,13 @@ function MapPageInner() {
                 if (query.length >= 1 && !selectedRoute) setOpen(true)
               }}
               placeholder="Filtrer par ligne..."
-              className="w-full h-14 rounded-3xl border-2 border-line bg-surface pl-12 pr-4 text-base font-semibold text-ink placeholder:text-ink3 focus:outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-100"
+              className="w-full h-14 rounded-3xl glass pl-12 pr-4 text-base font-semibold text-ink placeholder:text-ink3 focus:outline-none focus:shadow-glow"
             />
           </div>
           {selectedRoute && (
             <button
               onClick={clearFilter}
-              className="flex h-14 w-14 items-center justify-center rounded-3xl border-2 border-line bg-surface text-ink2 hover:text-rose-600 hover:border-coral-400 active:scale-95 transition-all shrink-0"
+              className="flex h-14 w-14 items-center justify-center rounded-3xl glass text-rose-light hover:shadow-glow-magenta active:scale-95 transition-all shrink-0"
               aria-label="Effacer le filtre"
             >
               <X className="h-5 w-5" strokeWidth={3} />
@@ -144,14 +144,13 @@ function MapPageInner() {
           )}
         </div>
 
-        {/* Autocomplete dropdown */}
         {open && routes.length > 0 && !selectedRoute && (
-          <div className="absolute z-[9999] mt-2 w-full rounded-3xl border-2 border-line bg-surface shadow-card-lg overflow-hidden max-h-64 overflow-y-auto">
+          <div className="absolute z-[9999] mt-2 w-full rounded-3xl glass-strong shadow-glass-lg overflow-hidden max-h-64 overflow-y-auto">
             {routes.map((route) => (
               <button
                 key={route.route_id}
                 onClick={() => selectRoute(route)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-primary-50 border-b-2 border-line last:border-b-0 transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.08] border-b border-line last:border-b-0 transition-colors"
               >
                 <Pill variant="primary" size="md" className="shrink-0 !w-12 !h-9">
                   {route.route_short_name}
@@ -163,12 +162,13 @@ function MapPageInner() {
         )}
       </div>
 
-      {/* Map */}
-      <BusMap
-        routeId={selectedRoute?.route_id}
-        height={600}
-        onRouteSelect={handleRouteFilter}
-      />
+      <div className="animate-fade-up">
+        <BusMap
+          routeId={selectedRoute?.route_id}
+          height={600}
+          onRouteSelect={handleRouteFilter}
+        />
+      </div>
     </div>
   )
 }

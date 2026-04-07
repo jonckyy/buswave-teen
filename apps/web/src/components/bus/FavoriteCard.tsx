@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { Map, X, Bell, Clock, Bus } from 'lucide-react'
+import { MapPin, X, Bell, Clock, Bus, Map as MapIcon } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useCountdown } from '@/hooks/useCountdown'
 import { useFavoritesActions } from '@/hooks/useFavoritesActions'
@@ -31,24 +31,24 @@ function formatClock(unix: number): string {
 function formatRemaining(sec: number): string {
   if (sec <= 0) return 'maintenant'
   const totalMin = Math.round(sec / 60)
-  if (totalMin < 1) return 'dans moins d\'1 min'
-  if (totalMin < 60) return `dans ${totalMin} min`
+  if (totalMin < 1) return '< 1 min'
+  if (totalMin < 60) return `${totalMin} min`
   const h = Math.floor(totalMin / 60)
   const m = totalMin % 60
-  return m === 0 ? `dans ${h} h` : `dans ${h}h ${m}min`
+  return m === 0 ? `${h} h` : `${h}h${m}`
 }
 
-function delayInfo(delaySec: number): { color: string; label: string | null } {
-  const absDelay = Math.abs(delaySec)
-  if (absDelay <= 60) return { color: 'text-lime-600', label: null }
+function delayInfo(delaySec: number) {
+  const abs = Math.abs(delaySec)
+  if (abs <= 60) return { color: 'text-lime-light', label: null as string | null }
   const min = Math.round(delaySec / 60)
   if (delaySec > 0) {
     return {
-      color: absDelay > 300 ? 'text-rose-600' : 'text-coral-500',
-      label: `+${min} min`,
+      color: abs > 300 ? 'text-rose-light' : 'text-orange',
+      label: `+${min}`,
     }
   }
-  return { color: 'text-secondary-600', label: `${min} min` }
+  return { color: 'text-cyan-light', label: `${min}` }
 }
 
 export function FavoriteCard({ stopId, routeId }: Props) {
@@ -72,12 +72,10 @@ export function FavoriteCard({ stopId, routeId }: Props) {
   const { data: arrivals = [], isLoading } = useQuery({
     queryKey: ['arrivals', stopId, routeId],
     queryFn: () => api.arrivals(stopId, routeId ?? undefined),
-    refetchInterval: 10_000,
+    refetchInterval: 15_000,
   })
 
   const next = arrivals[0]
-  const upcoming = arrivals.slice(1, 3)
-
   const countdown = useCountdown(next?.predictedArrivalUnix ?? 0)
   const delay = next ? delayInfo(next.delaySeconds) : null
 
@@ -88,22 +86,26 @@ export function FavoriteCard({ stopId, routeId }: Props) {
 
   return (
     <Card
-      variant="pop"
+      variant="glass"
       className={cn(
-        'animate-bounce-in transition-all duration-300',
+        'animate-fade-up transition-all duration-300 hover:shadow-glow',
+        'gradient-border',
         removing && 'opacity-0 scale-90'
       )}
     >
       {/* Header: stop name + line badge */}
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <div className="min-w-0 flex-1">
-          <h3 className="text-lg font-extrabold text-ink leading-tight truncate">{stopName}</h3>
-          {next?.headsign && (
-            <p className="text-sm text-ink2 mt-0.5 truncate">→ {next.headsign}</p>
-          )}
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex items-start gap-2 min-w-0 flex-1">
+          <MapPin className="h-4 w-4 text-primary-light shrink-0 mt-0.5" strokeWidth={2.5} />
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-extrabold text-ink leading-tight truncate">{stopName}</h3>
+            {next?.headsign && (
+              <p className="text-[11px] text-ink3 font-medium truncate">→ {next.headsign}</p>
+            )}
+          </div>
         </div>
         {next?.routeShortName && (
-          <Pill variant="primary" size="lg" className="shrink-0">
+          <Pill variant="primary" size="md" className="shrink-0">
             {next.routeShortName}
           </Pill>
         )}
@@ -111,78 +113,75 @@ export function FavoriteCard({ stopId, routeId }: Props) {
 
       {/* Main: arrival time + countdown */}
       {isLoading ? (
-        <div className="space-y-3 mb-5">
-          <div className="h-16 skeleton rounded-2xl" />
-          <div className="h-6 skeleton rounded-xl w-1/2" />
+        <div className="space-y-2 mb-3">
+          <div className="h-10 skeleton rounded-2xl" />
+          <div className="h-4 skeleton rounded-xl w-1/2" />
         </div>
       ) : !next ? (
-        <div className="flex flex-col items-center justify-center py-6 mb-5">
-          <Bus className="h-12 w-12 text-ink3 mb-2" strokeWidth={1.5} />
-          <p className="text-ink2 font-semibold">Aucun bus en vue</p>
-          <p className="text-ink3 text-sm">Reviens plus tard</p>
+        <div className="flex items-center gap-2 py-3 mb-3 text-ink3">
+          <Bus className="h-5 w-5" strokeWidth={2} />
+          <span className="text-sm font-bold">Aucun bus en vue</span>
         </div>
       ) : (
-        <div className="mb-5">
-          <div className="flex items-baseline gap-3 flex-wrap">
+        <Link
+          href={`/favorite-map?${mapParams.toString()}`}
+          className="block mb-3 pressable"
+        >
+          <div className="flex items-baseline gap-2 flex-wrap">
             <span
               className={cn(
-                'text-6xl font-extrabold tabular-nums leading-none',
+                'text-4xl font-extrabold tabular-nums leading-none tracking-tight',
                 delay?.color ?? 'text-ink'
               )}
             >
               {formatClock(next.predictedArrivalUnix)}
             </span>
             {delay?.label && (
-              <Pill variant={next.delaySeconds > 300 ? 'rose' : 'coral'} size="md">
+              <Pill
+                variant={next.delaySeconds > 300 ? 'rose' : 'magenta'}
+                size="sm"
+              >
                 {delay.label}
               </Pill>
             )}
           </div>
-          <p className="text-2xl font-bold text-ink2 mt-2">{formatRemaining(countdown)}</p>
-
-          {/* Upcoming arrivals */}
-          {upcoming.length > 0 && (
-            <div className="flex items-center gap-2 mt-3 pt-3 border-t-2 border-line">
-              <span className="text-xs font-bold text-ink3 uppercase">Suivants</span>
-              {upcoming.map((a) => (
-                <span
-                  key={`${a.tripId}-${a.stopSequence}`}
-                  className="text-sm font-bold text-ink2 tabular-nums"
-                >
-                  {formatClock(a.predictedArrivalUnix)}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
+          <p className="text-base font-bold text-ink2 mt-1">
+            dans <span className="text-gradient-cyan">{formatRemaining(countdown)}</span>
+          </p>
+        </Link>
       )}
 
       {/* Action buttons */}
-      <div className="flex items-center justify-between gap-2 pt-1">
-        <Link href={`/favorite-map?${mapParams.toString()}`} className="pressable">
+      <div className="flex items-center gap-1.5 pt-1">
+        <Link href={`/favorite-map?${mapParams.toString()}`}>
           <IconButton
             variant="primary"
-            icon={<Map className="h-5 w-5" strokeWidth={2.5} />}
+            size="sm"
+            icon={<MapIcon className="h-4 w-4" strokeWidth={2.5} />}
             label="Voir sur la carte"
           />
         </Link>
         <IconButton
-          variant="secondary"
-          icon={<Clock className="h-5 w-5" strokeWidth={2.5} />}
+          variant="cyan"
+          size="sm"
+          icon={<Clock className="h-4 w-4" strokeWidth={2.5} />}
           label="Horaires"
           onClick={() => setShowTimetable(true)}
         />
         {user && favorite && (
           <IconButton
             variant="lime"
-            icon={<Bell className="h-5 w-5" strokeWidth={2.5} />}
+            size="sm"
+            icon={<Bell className="h-4 w-4" strokeWidth={2.5} />}
             label="Notifications"
             onClick={() => setShowNotif(true)}
           />
         )}
+        <div className="flex-1" />
         <IconButton
-          variant="danger"
-          icon={<X className="h-5 w-5" strokeWidth={2.5} />}
+          variant="rose"
+          size="sm"
+          icon={<X className="h-4 w-4" strokeWidth={2.5} />}
           label="Retirer"
           onClick={() => {
             setRemoving(true)
