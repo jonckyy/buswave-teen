@@ -59,13 +59,27 @@ export function useTripSubscriptions(favoriteId: string | null) {
     },
   })
 
+  const updateDaysMutation = useMutation({
+    mutationFn: async ({ subId, selectedDays }: { subId: string; selectedDays: boolean[] }) => {
+      if (!favoriteId) throw new Error('No favoriteId')
+      const token = await getToken()
+      if (!token) throw new Error('Not authenticated')
+      return api.updateTripSubscriptionDays(favoriteId, subId, selectedDays, token)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey })
+    },
+  })
+
   return {
     subscriptions: query.data ?? [],
     isLoading: query.isLoading,
     error: query.error,
     addSubscription: addMutation.mutateAsync,
     removeSubscription: removeMutation.mutateAsync,
+    updateDays: updateDaysMutation.mutateAsync,
     isAdding: addMutation.isPending,
     isRemoving: removeMutation.isPending,
+    isUpdating: updateDaysMutation.isPending,
   }
 }

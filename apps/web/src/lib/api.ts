@@ -186,6 +186,21 @@ export const api = {
       }
     ),
 
+  updateTripSubscriptionDays: (
+    favoriteId: string,
+    subId: string,
+    selectedDays: boolean[],
+    token: string
+  ) =>
+    authFetch<TripSubscription | { ok: true; deleted: true }>(
+      `/api/notifications/trip-subscriptions/${encodeURIComponent(favoriteId)}/${encodeURIComponent(subId)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ selectedDays }),
+        token,
+      }
+    ),
+
   getQuietHours: (token: string) =>
     authFetch<{ quietStart: string; quietEnd: string }>('/api/notifications/quiet-hours', {
       method: 'GET',

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Clock, X, Loader2, Check, Save } from 'lucide-react'
@@ -43,8 +43,7 @@ function formatGtfsTime(time: string): { display: string; nextDay: boolean } {
   }
 }
 
-/** Composite key that identifies "the same conceptual bus" across different
- *  GTFS trip_ids (TEC sometimes uses one trip_id per day for the same departure). */
+/** Composite key — same conceptual bus across days */
 function compositeKey(entry: {
   arrivalTime: string
   routeShortName: string
@@ -54,42 +53,67 @@ function compositeKey(entry: {
   return `${entry.arrivalTime}|${entry.routeShortName}|${entry.headsign || ''}|${entry.directionId ?? 0}`
 }
 
-interface PickedTripData {
+interface DesiredTrip {
   arrivalTime: string
   routeShortName: string
   headsign: string
   directionId: 0 | 1
-  /** Map<dayIdx, tripId>: which actual GTFS trip_id was picked for which day */
+  /** Map<dayIdx, tripId> — what the user wants for each day */
   tripIdsByDay: Map<number, string>
 }
 
-export function TripPickerPanel({ favoriteId, stopId, routeId, stopName, onClose }: Props) {
-  const [day, setDay] = useState(getCurrentBrusselsDay)
-  // Map<compositeKey, PickedTripData>
-  const [picks, setPicks] = useState<Map<string, PickedTripData>>(new Map())
-  const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
-
-  const { subscriptions, addSubscription } = useTripSubscriptions(favoriteId)
-
-  // Build a map: compositeKey → Set<dayIdx> from EXISTING subscriptions
-  const subscribedDaysByKey = useMemo(() => {
-    const map = new Map<string, Set<number>>()
-    for (const sub of subscriptions) {
-      const key = compositeKey({
+/** Build a snapshot of the user's existing subscriptions as DesiredTrip Map */
+function buildInitialDesired(
+  subs: Array<{
+    id: string
+    tripId: string
+    arrivalTime: string
+    routeShortName: string
+    headsign: string
+    directionId: 0 | 1
+    selectedDays: boolean[]
+  }>
+): Map<string, DesiredTrip> {
+  const out = new Map<string, DesiredTrip>()
+  for (const sub of subs) {
+    const key = compositeKey(sub)
+    let entry = out.get(key)
+    if (!entry) {
+      entry = {
         arrivalTime: sub.arrivalTime,
         routeShortName: sub.routeShortName,
         headsign: sub.headsign,
         directionId: sub.directionId,
-      })
-      const set = map.get(key) ?? new Set<number>()
-      sub.selectedDays?.forEach((d, i) => {
-        if (d) set.add(i)
-      })
-      map.set(key, set)
+        tripIdsByDay: new Map(),
+      }
+      out.set(key, entry)
     }
-    return map
-  }, [subscriptions])
+    sub.selectedDays?.forEach((on, dayIdx) => {
+      if (on) entry!.tripIdsByDay.set(dayIdx, sub.tripId)
+    })
+  }
+  return out
+}
+
+export function TripPickerPanel({ favoriteId, stopId, routeId, stopName, onClose }: Props) {
+  const [day, setDay] = useState(getCurrentBrusselsDay)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  const { subscriptions, addSubscription, removeSubscription, updateDays } =
+    useTripSubscriptions(favoriteId)
+
+  // Desired state: initialized from existing subs, modified by clicks
+  const [desired, setDesired] = useState<Map<string, DesiredTrip>>(new Map())
+  const [initialized, setInitialized] = useState(false)
+
+  // Re-initialize when subscriptions arrive
+  useEffect(() => {
+    if (!initialized && subscriptions.length >= 0) {
+      setDesired(buildInitialDesired(subscriptions))
+      setInitialized(true)
+    }
+  }, [subscriptions, initialized])
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ['timetable', stopId, routeId, day],
@@ -101,22 +125,25 @@ export function TripPickerPanel({ favoriteId, stopId, routeId, stopName, onClose
 
   function toggleSelect(entry: typeof entries[number]) {
     const key = compositeKey(entry)
-    setPicks((prev) => {
+    setDesired((prev) => {
       const next = new Map(prev)
       const existing = next.get(key)
-      if (existing) {
+      if (existing && existing.tripIdsByDay.has(currentDayIdx)) {
+        // Already selected for this day → deselect
         const newDays = new Map(existing.tripIdsByDay)
-        if (newDays.has(currentDayIdx)) {
-          newDays.delete(currentDayIdx)
-        } else {
-          newDays.set(currentDayIdx, entry.tripId)
-        }
+        newDays.delete(currentDayIdx)
         if (newDays.size === 0) {
           next.delete(key)
         } else {
           next.set(key, { ...existing, tripIdsByDay: newDays })
         }
+      } else if (existing) {
+        // Other days already selected → add this day
+        const newDays = new Map(existing.tripIdsByDay)
+        newDays.set(currentDayIdx, entry.tripId)
+        next.set(key, { ...existing, tripIdsByDay: newDays })
       } else {
+        // New entry
         next.set(key, {
           arrivalTime: entry.arrivalTime,
           routeShortName: entry.routeShortName,
@@ -129,39 +156,118 @@ export function TripPickerPanel({ favoriteId, stopId, routeId, stopName, onClose
     })
   }
 
-  const totalPicks = Array.from(picks.values()).reduce((sum, p) => sum + p.tripIdsByDay.size, 0)
+  // Build initial state once for diffing — recompute when subs change
+  const initial = useMemo(() => buildInitialDesired(subscriptions), [subscriptions])
+
+  // Compute diff: how does `desired` differ from `initial`?
+  const diff = useMemo(() => {
+    const totalCurrent = Array.from(desired.values()).reduce(
+      (sum, d) => sum + d.tripIdsByDay.size,
+      0
+    )
+    const totalInitial = Array.from(initial.values()).reduce(
+      (sum, d) => sum + d.tripIdsByDay.size,
+      0
+    )
+    let changed = totalCurrent !== totalInitial
+    if (!changed) {
+      // Compare each composite + day
+      for (const [key, d] of desired) {
+        const init = initial.get(key)
+        if (!init) {
+          changed = true
+          break
+        }
+        for (const [dayIdx, tripId] of d.tripIdsByDay) {
+          if (init.tripIdsByDay.get(dayIdx) !== tripId) {
+            changed = true
+            break
+          }
+        }
+        if (changed) break
+      }
+    }
+    return { totalCurrent, totalInitial, changed }
+  }, [desired, initial])
 
   async function handleSave() {
-    if (picks.size === 0) {
+    if (!diff.changed) {
       onClose()
       return
     }
     setSaving(true)
     setSaveError(null)
     try {
-      // For each composite key, group its tripIdsByDay by tripId
-      // (one composite may map to multiple tripIds — one per day if TEC has separate trips per day)
-      for (const data of picks.values()) {
-        // Group days by tripId
-        const daysByTripId = new Map<string, number[]>()
+      // For each existing subscription, decide: keep / update days / delete
+      // Map sub.id → final selectedDays based on desired state
+      const subFinalDays = new Map<string, boolean[]>()
+      const newPicks: Array<{
+        tripId: string
+        arrivalTime: string
+        routeShortName: string
+        headsign: string
+        directionId: 0 | 1
+        selectedDays: boolean[]
+      }> = []
+
+      // Walk through desired and build final state per tripId
+      const desiredByTripId = new Map<string, Set<number>>()
+      const tripMeta = new Map<
+        string,
+        { arrivalTime: string; routeShortName: string; headsign: string; directionId: 0 | 1 }
+      >()
+      for (const data of desired.values()) {
         for (const [dayIdx, tripId] of data.tripIdsByDay.entries()) {
-          const list = daysByTripId.get(tripId) ?? []
-          list.push(dayIdx)
-          daysByTripId.set(tripId, list)
-        }
-        // Send one POST per unique tripId
-        for (const [tripId, days] of daysByTripId.entries()) {
-          const selectedDays = Array.from({ length: 7 }, (_, i) => days.includes(i))
-          await addSubscription({
-            tripId,
+          const set = desiredByTripId.get(tripId) ?? new Set<number>()
+          set.add(dayIdx)
+          desiredByTripId.set(tripId, set)
+          tripMeta.set(tripId, {
             arrivalTime: data.arrivalTime,
             routeShortName: data.routeShortName,
             headsign: data.headsign,
             directionId: data.directionId,
-            selectedDays,
           })
         }
       }
+
+      // For each existing sub, determine action
+      for (const sub of subscriptions) {
+        const wantedDays = desiredByTripId.get(sub.tripId)
+        if (!wantedDays || wantedDays.size === 0) {
+          // Sub no longer wanted → delete (will use updateDays with all-false which auto-deletes)
+          subFinalDays.set(sub.id, [false, false, false, false, false, false, false])
+        } else {
+          const newDays = Array.from({ length: 7 }, (_, i) => wantedDays.has(i))
+          // Only update if different from current
+          const same = newDays.every((v, i) => v === sub.selectedDays?.[i])
+          if (!same) {
+            subFinalDays.set(sub.id, newDays)
+          }
+          // Mark this tripId as "handled" — don't create a new sub for it
+          desiredByTripId.delete(sub.tripId)
+        }
+      }
+
+      // Remaining tripIds in desiredByTripId are NEW → POST
+      for (const [tripId, daySet] of desiredByTripId.entries()) {
+        const meta = tripMeta.get(tripId)
+        if (!meta) continue
+        const selectedDays = Array.from({ length: 7 }, (_, i) => daySet.has(i))
+        newPicks.push({
+          tripId,
+          ...meta,
+          selectedDays,
+        })
+      }
+
+      // Execute: update existing subs first, then create new
+      for (const [subId, days] of subFinalDays.entries()) {
+        await updateDays({ subId, selectedDays: days })
+      }
+      for (const pick of newPicks) {
+        await addSubscription(pick)
+      }
+
       onClose()
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : String(err))
@@ -170,7 +276,6 @@ export function TripPickerPanel({ favoriteId, stopId, routeId, stopName, onClose
     }
   }
 
-  // Group entries by hour
   const grouped = new Map<number, typeof entries>()
   for (const e of entries) {
     const hour = Number(e.arrivalTime.split(':')[0])
@@ -206,10 +311,9 @@ export function TripPickerPanel({ favoriteId, stopId, routeId, stopName, onClose
           </button>
         </div>
 
-        {/* Hint */}
         <div className="px-5 py-2 border-b border-line shrink-0">
           <p className="text-[11px] text-ink3 font-bold text-center">
-            Coche un bus pour le jour affiché. Navigue entre les jours pour ajouter d'autres jours au même bus.
+            Coche ou décoche un bus pour le jour affiché. Navigue entre les jours pour modifier d'autres jours.
           </p>
         </div>
 
@@ -254,19 +358,11 @@ export function TripPickerPanel({ favoriteId, stopId, routeId, stopName, onClose
                     <div className="space-y-1.5">
                       {items.map((entry, i) => {
                         const key = compositeKey(entry)
-                        const subDays = subscribedDaysByKey.get(key)
-                        const pickedData = picks.get(key)
-                        const pickedDays = pickedData
-                          ? new Set(pickedData.tripIdsByDay.keys())
-                          : null
-                        const isCheckedToday =
-                          (subDays?.has(currentDayIdx) ?? false) ||
-                          (pickedDays?.has(currentDayIdx) ?? false)
-                        // Combined days indicator (existing + new picks)
-                        const allDays = new Set([
-                          ...(subDays ? Array.from(subDays) : []),
-                          ...(pickedDays ? Array.from(pickedDays) : []),
-                        ])
+                        const desiredEntry = desired.get(key)
+                        const allDays = desiredEntry
+                          ? new Set(desiredEntry.tripIdsByDay.keys())
+                          : new Set<number>()
+                        const isCheckedToday = allDays.has(currentDayIdx)
                         const { display, nextDay: nd } = formatGtfsTime(entry.arrivalTime)
                         return (
                           <button
@@ -299,7 +395,6 @@ export function TripPickerPanel({ favoriteId, stopId, routeId, stopName, onClose
                             <span className="text-xs text-ink2 font-semibold truncate flex-1">
                               {entry.headsign || 'Terminus'}
                             </span>
-                            {/* Days indicator (all selected days for this composite) */}
                             {allDays.size > 0 && (
                               <span className="flex gap-0.5 shrink-0">
                                 {DAYS.map(({ idx, label }) => (
@@ -331,13 +426,12 @@ export function TripPickerPanel({ favoriteId, stopId, routeId, stopName, onClose
           {saveError && <p className="text-xs text-rose-light font-bold">{saveError}</p>}
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs text-ink3 font-bold">
-              {totalPicks > 0
-                ? `${totalPicks} jour${totalPicks > 1 ? 's' : ''} sélectionné${totalPicks > 1 ? 's' : ''}`
-                : 'Coche les bus à suivre'}
+              {diff.totalCurrent} jour{diff.totalCurrent !== 1 ? 's' : ''} sélectionné{diff.totalCurrent !== 1 ? 's' : ''}
+              {diff.changed && <span className="text-cyan-light"> — modifications en attente</span>}
             </p>
             <button
               onClick={handleSave}
-              disabled={saving || totalPicks === 0}
+              disabled={saving || !diff.changed}
               className="flex items-center gap-1.5 rounded-pill bg-btn-primary text-white px-4 py-2 text-xs font-extrabold shadow-glow disabled:opacity-40 disabled:saturate-50 active:scale-95 transition-all"
             >
               {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" strokeWidth={3} />}
