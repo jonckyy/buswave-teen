@@ -35,6 +35,54 @@ function formatDaysCompact(days: boolean[] | undefined): string {
   return days.map((on, i) => (on ? labels[i] : null)).filter(Boolean).join(' ')
 }
 
+interface TripSubGroup {
+  arrivalTime: string
+  routeShortName: string
+  headsign: string
+  /** Merged selected days across all subs in the group */
+  selectedDays: boolean[]
+  isStale: boolean
+  /** All subscription IDs in this group (so we can delete them all at once) */
+  subIds: string[]
+}
+
+/** Group subscriptions by (arrivalTime, route, headsign, direction) — one
+ *  conceptual bus, possibly across multiple GTFS trip_ids. */
+function groupTripSubs(
+  subs: Array<{
+    id: string
+    arrivalTime: string
+    routeShortName: string
+    headsign: string
+    directionId: 0 | 1
+    selectedDays: boolean[]
+    isStale: boolean
+  }>
+): TripSubGroup[] {
+  const map = new Map<string, TripSubGroup>()
+  for (const s of subs) {
+    const key = `${s.arrivalTime}|${s.routeShortName}|${s.headsign || ''}|${s.directionId}`
+    const existing = map.get(key)
+    if (existing) {
+      existing.subIds.push(s.id)
+      existing.isStale = existing.isStale || s.isStale
+      for (let i = 0; i < 7; i++) {
+        if (s.selectedDays?.[i]) existing.selectedDays[i] = true
+      }
+    } else {
+      map.set(key, {
+        arrivalTime: s.arrivalTime,
+        routeShortName: s.routeShortName,
+        headsign: s.headsign,
+        selectedDays: [...(s.selectedDays ?? [false, false, false, false, false, false, false])],
+        isStale: s.isStale,
+        subIds: [s.id],
+      })
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.arrivalTime.localeCompare(b.arrivalTime))
+}
+
 export function NotificationSettingsPanel({ favoriteId, stopId, stopName, routeId, onClose }: Props) {
   const { settings, isLoading, updateSettings, isUpdating, error } = useNotificationSettings(favoriteId)
   const { supported, permission, isSubscribed, subscribe } = usePushNotifications()
@@ -260,35 +308,38 @@ export function NotificationSettingsPanel({ favoriteId, stopId, stopName, routeI
                           <p className="text-[11px] text-ink3 text-center py-3 font-bold">Aucun bus sélectionné</p>
                         ) : (
                           <div className="space-y-1.5">
-                            {tripSubs.map((sub) => (
+                            {groupTripSubs(tripSubs).map((group) => (
                               <div
-                                key={sub.id}
+                                key={group.subIds.join(',')}
                                 className={cn(
                                   'rounded-2xl px-3 py-2',
-                                  sub.isStale
+                                  group.isStale
                                     ? 'glass-strong shadow-glow-sm border border-orange/30'
                                     : 'glass'
                                 )}
                               >
                                 <div className="flex items-center gap-2">
-                                  {sub.isStale && (
+                                  {group.isStale && (
                                     <AlertCircle className="h-3.5 w-3.5 text-orange shrink-0" />
                                   )}
                                   <span className="font-extrabold tabular-nums text-ink text-base">
-                                    {sub.arrivalTime.slice(0, 5)}
+                                    {group.arrivalTime.slice(0, 5)}
                                   </span>
                                   <Pill variant="primary" size="sm" className="shrink-0">
-                                    {sub.routeShortName}
+                                    {group.routeShortName}
                                   </Pill>
                                   <span className="text-[11px] text-ink3 font-bold shrink-0">
-                                    {formatDaysCompact(sub.selectedDays)}
+                                    {formatDaysCompact(group.selectedDays)}
                                   </span>
                                   <button
                                     type="button"
                                     onClick={async (e) => {
                                       stopProp(e)
                                       try {
-                                        await removeSubscription(sub.id)
+                                        // Delete all underlying subscriptions in the group
+                                        for (const id of group.subIds) {
+                                          await removeSubscription(id)
+                                        }
                                       } catch { /* */ }
                                     }}
                                     className="text-ink3 hover:text-rose-light p-0.5 shrink-0 ml-auto"
@@ -297,9 +348,9 @@ export function NotificationSettingsPanel({ favoriteId, stopId, stopName, routeI
                                   </button>
                                 </div>
                                 <p className="text-[11px] text-ink2 font-semibold truncate mt-0.5">
-                                  → {sub.headsign}
+                                  → {group.headsign}
                                 </p>
-                                {sub.isStale && (
+                                {group.isStale && (
                                   <p className="text-[10px] text-orange font-extrabold mt-0.5">
                                     ⚠ À reconfigurer
                                   </p>
