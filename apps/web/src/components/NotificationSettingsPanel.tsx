@@ -2,26 +2,36 @@
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Bell, Clock, MapPin, AlertTriangle, X, Loader2, Plus } from 'lucide-react'
+import { Bell, Clock, MapPin, AlertTriangle, X, Loader2, Plus, CalendarClock, AlertCircle } from 'lucide-react'
 import { useNotificationSettings } from '@/hooks/useNotificationSettings'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
 import { useFeatureFlags } from '@/hooks/useFeatureFlags'
+import { useTripSubscriptions } from '@/hooks/useTripSubscriptions'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Pill } from '@/components/ui/Pill'
+import { TripPickerPanel } from '@/components/TripPickerPanel'
 
 interface Props {
   favoriteId: string
+  stopId: string
   stopName: string
   routeId: string | null
   onClose: () => void
 }
 
-export function NotificationSettingsPanel({ favoriteId, stopName, onClose }: Props) {
+export function NotificationSettingsPanel({ favoriteId, stopId, stopName, routeId, onClose }: Props) {
   const { settings, isLoading, updateSettings, isUpdating, error } = useNotificationSettings(favoriteId)
   const { supported, permission, isSubscribed, subscribe } = usePushNotifications()
   const flags = useFeatureFlags()
   const triggers = flags.allowedTriggerTypes
+  const { subscriptions: tripSubs, removeSubscription } = useTripSubscriptions(favoriteId)
+  const [showTripPicker, setShowTripPicker] = useState(false)
+  const [tripMode, setTripMode] = useState<'all' | 'specific'>('all')
+
+  useEffect(() => {
+    if (tripSubs.length > 0) setTripMode('specific')
+  }, [tripSubs.length])
 
   const [timeEnabled, setTimeEnabled] = useState(false)
   const [timeMinutes, setTimeMinutes] = useState<number[]>([5])
@@ -202,6 +212,93 @@ export function NotificationSettingsPanel({ favoriteId, stopName, onClose }: Pro
                       </div>
                     </div>
                   )}
+                  {/* Trip mode selector */}
+                  <div className="pt-3 mt-3 border-t border-line space-y-2">
+                    <p className="text-xs font-bold text-ink2">Quels bus suivre ?</p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => { stopProp(e); setTripMode('all') }}
+                        className={cn(
+                          'flex-1 rounded-pill px-3 py-2 text-xs font-extrabold transition-all',
+                          tripMode === 'all'
+                            ? 'bg-btn-primary text-white shadow-glow-sm'
+                            : 'glass text-ink2 hover:text-ink'
+                        )}
+                      >
+                        Tous les bus
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { stopProp(e); setTripMode('specific') }}
+                        className={cn(
+                          'flex-1 rounded-pill px-3 py-2 text-xs font-extrabold transition-all',
+                          tripMode === 'specific'
+                            ? 'bg-btn-primary text-white shadow-glow-sm'
+                            : 'glass text-ink2 hover:text-ink'
+                        )}
+                      >
+                        Certains horaires
+                      </button>
+                    </div>
+                    {tripMode === 'specific' && (
+                      <div className="space-y-2">
+                        {tripSubs.length === 0 ? (
+                          <p className="text-[11px] text-ink3 text-center py-3 font-bold">Aucun bus sélectionné</p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {tripSubs.map((sub) => (
+                              <div
+                                key={sub.id}
+                                className={cn(
+                                  'flex items-center gap-2 rounded-2xl px-3 py-2 text-xs',
+                                  sub.isStale
+                                    ? 'glass-strong shadow-glow-sm border border-orange/30'
+                                    : 'glass'
+                                )}
+                              >
+                                {sub.isStale && (
+                                  <AlertCircle className="h-3.5 w-3.5 text-orange shrink-0" />
+                                )}
+                                <span className="font-extrabold tabular-nums text-ink">
+                                  {sub.arrivalTime.slice(0, 5)}
+                                </span>
+                                <Pill variant="primary" size="sm" className="shrink-0">
+                                  {sub.routeShortName}
+                                </Pill>
+                                <span className="text-ink3 truncate flex-1 font-semibold">→ {sub.headsign}</span>
+                                {sub.isStale && (
+                                  <span className="text-[10px] text-orange font-extrabold shrink-0">
+                                    À reconfig.
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    stopProp(e)
+                                    try {
+                                      await removeSubscription(sub.id)
+                                    } catch { /* */ }
+                                  }}
+                                  className="text-ink3 hover:text-rose-light p-0.5 shrink-0"
+                                >
+                                  <X className="h-3 w-3" strokeWidth={3} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => { stopProp(e); setShowTripPicker(true) }}
+                          className="w-full flex items-center justify-center gap-1.5 rounded-pill border border-dashed border-cyan/40 px-3 py-2.5 text-xs font-extrabold text-cyan-light hover:bg-white/[0.05] transition-colors"
+                        >
+                          <CalendarClock className="h-3.5 w-3.5" strokeWidth={2.5} />
+                          Choisir dans le planning
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </ToggleCard>
@@ -271,6 +368,16 @@ export function NotificationSettingsPanel({ favoriteId, stopName, onClose }: Pro
           </>
         )}
       </div>
+
+      {showTripPicker && (
+        <TripPickerPanel
+          favoriteId={favoriteId}
+          stopId={stopId}
+          routeId={routeId}
+          stopName={stopName}
+          onClose={() => setShowTripPicker(false)}
+        />
+      )}
     </div>
   )
 

@@ -194,6 +194,7 @@ export function FavoriteCard({ stopId, routeId }: Props) {
       {showNotif && favorite && (
         <NotificationSettingsPanel
           favoriteId={favorite.id}
+          stopId={stopId}
           stopName={stopName}
           routeId={routeId}
           onClose={() => setShowNotif(false)}

@@ -17,6 +17,8 @@ import type {
   NotificationSettings,
   NotificationSettingsUpsert,
   PushSubscriptionPayload,
+  TripSubscription,
+  TripSubscriptionInsert,
   RoleConfig,
   RoleConfigUpdate,
   AdminUserRow,
@@ -160,6 +162,29 @@ export const api = {
       method: 'DELETE',
       token,
     }),
+
+  // ── Trip-specific subscriptions ──────────────────────────────────────────
+  getTripSubscriptions: (favoriteId: string, token: string) =>
+    authFetch<TripSubscription[]>(`/api/notifications/trip-subscriptions/${encodeURIComponent(favoriteId)}`, {
+      method: 'GET',
+      token,
+    }),
+
+  addTripSubscription: (favoriteId: string, payload: TripSubscriptionInsert, token: string) =>
+    authFetch<TripSubscription>(`/api/notifications/trip-subscriptions/${encodeURIComponent(favoriteId)}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      token,
+    }),
+
+  removeTripSubscription: (favoriteId: string, subId: string, token: string) =>
+    authFetch<{ ok: true }>(
+      `/api/notifications/trip-subscriptions/${encodeURIComponent(favoriteId)}/${encodeURIComponent(subId)}`,
+      {
+        method: 'DELETE',
+        token,
+      }
+    ),
 
   getQuietHours: (token: string) =>
     authFetch<{ quietStart: string; quietEnd: string }>('/api/notifications/quiet-hours', {
