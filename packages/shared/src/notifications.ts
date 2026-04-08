@@ -24,8 +24,10 @@ export interface TripSubscription {
   headsign: string
   /** GTFS HH:MM:SS local Brussels time at the favorite stop (may exceed 24h) */
   arrivalTime: string
-  /** Boolean array [Mon, Tue, Wed, Thu, Fri, Sat, Sun] */
+  /** Boolean array [Mon, Tue, Wed, Thu, Fri, Sat, Sun] — actual GTFS calendar of the trip */
   serviceDays: boolean[]
+  /** Boolean array [Mon, Tue, Wed, Thu, Fri, Sat, Sun] — days the USER wants to be notified */
+  selectedDays: boolean[]
   /** True if no current trip matches the semantic attributes — user must reconfigure */
   isStale: boolean
   staleReason: 'no_match' | 'multiple_matches' | 'time_drift' | null
@@ -40,7 +42,8 @@ export interface TripSubscriptionInsert {
   directionId: 0 | 1
   headsign: string
   arrivalTime: string
-  serviceDays: boolean[]
+  /** Days the user wants to be notified [Mon..Sun] */
+  selectedDays: boolean[]
 }
 
 export interface NotificationSettings {

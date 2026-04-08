@@ -43,27 +43,35 @@ function formatGtfsTime(time: string): { display: string; nextDay: boolean } {
   }
 }
 
-interface SelectedTrip {
-  tripId: string
+interface TripMeta {
   arrivalTime: string
   routeShortName: string
   headsign: string
   directionId: 0 | 1
-  serviceDays: boolean[]
 }
 
 export function TripPickerPanel({ favoriteId, stopId, routeId, stopName, onClose }: Props) {
   const [day, setDay] = useState(getCurrentBrusselsDay)
-  const [selected, setSelected] = useState<Map<string, SelectedTrip>>(new Map())
+  // Map<tripId, Set<dayIdx>> — selections persist across day navigations
+  const [picks, setPicks] = useState<Map<string, Set<number>>>(new Map())
+  const [tripMeta, setTripMeta] = useState<Map<string, TripMeta>>(new Map())
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
   const { subscriptions, addSubscription } = useTripSubscriptions(favoriteId)
 
-  const subscribedTripIds = useMemo(
-    () => new Set(subscriptions.map((s) => s.tripId)),
-    [subscriptions]
-  )
+  // Map of subscribed tripId → its selected_days (so the user sees them as already-selected)
+  const subscribedDays = useMemo(() => {
+    const map = new Map<string, Set<number>>()
+    for (const sub of subscriptions) {
+      const set = new Set<number>()
+      sub.selectedDays?.forEach((d, i) => {
+        if (d) set.add(i)
+      })
+      map.set(sub.tripId, set)
+    }
+    return map
+  }, [subscriptions])
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ['timetable', stopId, routeId, day],
@@ -71,42 +79,59 @@ export function TripPickerPanel({ favoriteId, stopId, routeId, stopName, onClose
     staleTime: 5 * 60_000,
   })
 
+  const currentDayIdx = DAYS.find((d) => d.key === day)?.idx ?? 0
+
   function toggleSelect(entry: typeof entries[number]) {
-    const key = entry.tripId
-    setSelected((prev) => {
+    setPicks((prev) => {
       const next = new Map(prev)
-      if (next.has(key)) {
-        next.delete(key)
+      const set = new Set(next.get(entry.tripId) ?? [])
+      // Allow toggling: if currentDay already in set, remove; else add
+      if (set.has(currentDayIdx)) {
+        set.delete(currentDayIdx)
       } else {
-        const days = [false, false, false, false, false, false, false]
-        const dayObj = DAYS.find((d) => d.key === day)
-        if (dayObj) days[dayObj.idx] = true
-        next.set(key, {
-          tripId: entry.tripId,
-          arrivalTime: entry.arrivalTime,
-          routeShortName: entry.routeShortName,
-          headsign: entry.headsign || 'Terminus',
-          directionId: (entry.directionId ?? 0) as 0 | 1,
-          serviceDays: days,
-        })
+        set.add(currentDayIdx)
       }
+      if (set.size === 0) {
+        next.delete(entry.tripId)
+      } else {
+        next.set(entry.tripId, set)
+      }
+      return next
+    })
+    setTripMeta((prev) => {
+      const next = new Map(prev)
+      next.set(entry.tripId, {
+        arrivalTime: entry.arrivalTime,
+        routeShortName: entry.routeShortName,
+        headsign: entry.headsign || 'Terminus',
+        directionId: (entry.directionId ?? 0) as 0 | 1,
+      })
       return next
     })
   }
 
+  const totalPicks = Array.from(picks.values()).reduce((sum, s) => sum + s.size, 0)
+
   async function handleSave() {
+    if (picks.size === 0) {
+      onClose()
+      return
+    }
     setSaving(true)
     setSaveError(null)
     try {
-      for (const trip of selected.values()) {
-        if (subscribedTripIds.has(trip.tripId)) continue
+      // For each picked trip, send ONE POST with selectedDays
+      for (const [tripId, daySet] of picks.entries()) {
+        const meta = tripMeta.get(tripId)
+        if (!meta) continue
+        const selectedDays = Array.from({ length: 7 }, (_, i) => daySet.has(i))
         await addSubscription({
-          tripId: trip.tripId,
-          arrivalTime: trip.arrivalTime,
-          routeShortName: trip.routeShortName,
-          headsign: trip.headsign,
-          directionId: trip.directionId,
-          serviceDays: trip.serviceDays,
+          tripId,
+          arrivalTime: meta.arrivalTime,
+          routeShortName: meta.routeShortName,
+          headsign: meta.headsign,
+          directionId: meta.directionId,
+          selectedDays,
         })
       }
       onClose()
@@ -153,6 +178,13 @@ export function TripPickerPanel({ favoriteId, stopId, routeId, stopName, onClose
           </button>
         </div>
 
+        {/* Hint */}
+        <div className="px-5 py-2 border-b border-line shrink-0">
+          <p className="text-[11px] text-ink3 font-bold text-center">
+            Coche un bus pour le jour affiché. Navigue entre les jours pour ajouter d'autres jours au même bus.
+          </p>
+        </div>
+
         {/* Day picker */}
         <div className="flex items-center gap-1.5 px-4 py-3 border-b border-line shrink-0">
           {DAYS.map(({ key, label }) => (
@@ -193,15 +225,21 @@ export function TripPickerPanel({ favoriteId, stopId, routeId, stopName, onClose
                     </div>
                     <div className="space-y-1.5">
                       {items.map((entry, i) => {
-                        const isSubscribed = subscribedTripIds.has(entry.tripId)
-                        const isSelected = selected.has(entry.tripId)
-                        const checked = isSubscribed || isSelected
+                        const subDays = subscribedDays.get(entry.tripId)
+                        const pickedDays = picks.get(entry.tripId)
+                        const isSubscribedToday = subDays?.has(currentDayIdx) ?? false
+                        const isPickedToday = pickedDays?.has(currentDayIdx) ?? false
+                        const checked = isSubscribedToday || isPickedToday
+                        // Combine all selected days (existing + new picks) for this trip
+                        const allDays = new Set([
+                          ...(subDays ? Array.from(subDays) : []),
+                          ...(pickedDays ? Array.from(pickedDays) : []),
+                        ])
                         const { display, nextDay: nd } = formatGtfsTime(entry.arrivalTime)
                         return (
                           <button
                             key={`${entry.tripId}-${i}`}
-                            onClick={() => !isSubscribed && toggleSelect(entry)}
-                            disabled={isSubscribed}
+                            onClick={() => toggleSelect(entry)}
                             className={cn(
                               'w-full flex items-center gap-3 rounded-2xl p-2.5 text-left transition-all pressable',
                               checked
@@ -229,8 +267,21 @@ export function TripPickerPanel({ favoriteId, stopId, routeId, stopName, onClose
                             <span className="text-xs text-ink2 font-semibold truncate flex-1">
                               {entry.headsign || 'Terminus'}
                             </span>
-                            {isSubscribed && (
-                              <span className="text-[10px] text-lime-light font-bold ml-auto">déjà</span>
+                            {/* Days summary for this trip */}
+                            {allDays.size > 0 && (
+                              <span className="flex gap-0.5 shrink-0">
+                                {DAYS.map(({ idx, label }) => (
+                                  <span
+                                    key={idx}
+                                    className={cn(
+                                      'text-[9px] font-extrabold w-4 text-center',
+                                      allDays.has(idx) ? 'text-lime-light' : 'text-ink3/40'
+                                    )}
+                                  >
+                                    {label[0]}
+                                  </span>
+                                ))}
+                              </span>
                             )}
                           </button>
                         )
@@ -248,13 +299,13 @@ export function TripPickerPanel({ favoriteId, stopId, routeId, stopName, onClose
           {saveError && <p className="text-xs text-rose-light font-bold">{saveError}</p>}
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs text-ink3 font-bold">
-              {selected.size > 0
-                ? `${selected.size} nouvel${selected.size > 1 ? 'les' : ''} sélection${selected.size > 1 ? 's' : ''}`
+              {totalPicks > 0
+                ? `${totalPicks} jour${totalPicks > 1 ? 's' : ''} sélectionné${totalPicks > 1 ? 's' : ''}`
                 : 'Coche les bus à suivre'}
             </p>
             <button
               onClick={handleSave}
-              disabled={saving || selected.size === 0}
+              disabled={saving || totalPicks === 0}
               className="flex items-center gap-1.5 rounded-pill bg-btn-primary text-white px-4 py-2 text-xs font-extrabold shadow-glow disabled:opacity-40 disabled:saturate-50 active:scale-95 transition-all"
             >
               {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" strokeWidth={3} />}

@@ -20,6 +20,21 @@ interface Props {
   onClose: () => void
 }
 
+/** Format selected_days as compact: "Lu-Ve", "Sa Di", "Tous", "Lu Me Ve" */
+function formatDaysCompact(days: boolean[] | undefined): string {
+  if (!days || days.length !== 7) return ''
+  const labels = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di']
+  const count = days.filter(Boolean).length
+  if (count === 0) return ''
+  if (count === 7) return 'Tous'
+  // Weekdays only
+  if (days[0] && days[1] && days[2] && days[3] && days[4] && !days[5] && !days[6]) return 'Lu-Ve'
+  // Weekend only
+  if (!days[0] && !days[1] && !days[2] && !days[3] && !days[4] && days[5] && days[6]) return 'Sa Di'
+  // Otherwise list each
+  return days.map((on, i) => (on ? labels[i] : null)).filter(Boolean).join(' ')
+}
+
 export function NotificationSettingsPanel({ favoriteId, stopId, stopName, routeId, onClose }: Props) {
   const { settings, isLoading, updateSettings, isUpdating, error } = useNotificationSettings(favoriteId)
   const { supported, permission, isSubscribed, subscribe } = usePushNotifications()
@@ -249,39 +264,46 @@ export function NotificationSettingsPanel({ favoriteId, stopId, stopName, routeI
                               <div
                                 key={sub.id}
                                 className={cn(
-                                  'flex items-center gap-2 rounded-2xl px-3 py-2 text-xs',
+                                  'rounded-2xl px-3 py-2',
                                   sub.isStale
                                     ? 'glass-strong shadow-glow-sm border border-orange/30'
                                     : 'glass'
                                 )}
                               >
-                                {sub.isStale && (
-                                  <AlertCircle className="h-3.5 w-3.5 text-orange shrink-0" />
-                                )}
-                                <span className="font-extrabold tabular-nums text-ink">
-                                  {sub.arrivalTime.slice(0, 5)}
-                                </span>
-                                <Pill variant="primary" size="sm" className="shrink-0">
-                                  {sub.routeShortName}
-                                </Pill>
-                                <span className="text-ink3 truncate flex-1 font-semibold">→ {sub.headsign}</span>
-                                {sub.isStale && (
-                                  <span className="text-[10px] text-orange font-extrabold shrink-0">
-                                    À reconfig.
+                                <div className="flex items-center gap-2">
+                                  {sub.isStale && (
+                                    <AlertCircle className="h-3.5 w-3.5 text-orange shrink-0" />
+                                  )}
+                                  <span className="font-extrabold tabular-nums text-ink text-base">
+                                    {sub.arrivalTime.slice(0, 5)}
                                   </span>
+                                  <Pill variant="primary" size="sm" className="shrink-0">
+                                    {sub.routeShortName}
+                                  </Pill>
+                                  <span className="text-[11px] text-ink3 font-bold shrink-0">
+                                    {formatDaysCompact(sub.selectedDays)}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={async (e) => {
+                                      stopProp(e)
+                                      try {
+                                        await removeSubscription(sub.id)
+                                      } catch { /* */ }
+                                    }}
+                                    className="text-ink3 hover:text-rose-light p-0.5 shrink-0 ml-auto"
+                                  >
+                                    <X className="h-3 w-3" strokeWidth={3} />
+                                  </button>
+                                </div>
+                                <p className="text-[11px] text-ink2 font-semibold truncate mt-0.5">
+                                  → {sub.headsign}
+                                </p>
+                                {sub.isStale && (
+                                  <p className="text-[10px] text-orange font-extrabold mt-0.5">
+                                    ⚠ À reconfigurer
+                                  </p>
                                 )}
-                                <button
-                                  type="button"
-                                  onClick={async (e) => {
-                                    stopProp(e)
-                                    try {
-                                      await removeSubscription(sub.id)
-                                    } catch { /* */ }
-                                  }}
-                                  className="text-ink3 hover:text-rose-light p-0.5 shrink-0"
-                                >
-                                  <X className="h-3 w-3" strokeWidth={3} />
-                                </button>
                               </div>
                             ))}
                           </div>
