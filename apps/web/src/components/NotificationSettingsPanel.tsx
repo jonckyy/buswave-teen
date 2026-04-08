@@ -84,7 +84,7 @@ export function NotificationSettingsPanel({ favoriteId, stopId, stopName, routeI
   }
 
   const stopProp = (e: React.MouseEvent | React.TouchEvent) => e.stopPropagation()
-  const handleBackdrop = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleBackdrop = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     onClose()
@@ -94,12 +94,10 @@ export function NotificationSettingsPanel({ favoriteId, stopId, stopName, routeI
     <div
       className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-bg-deep/70 backdrop-blur-md p-0 sm:p-4"
       onClick={handleBackdrop}
-      onTouchEnd={handleBackdrop}
     >
       <div
         className="w-full max-w-md rounded-t-3xl sm:rounded-3xl glass-strong shadow-glass-lg p-6 space-y-5 max-h-[90vh] overflow-y-auto animate-fade-up"
         onClick={stopProp}
-        onTouchEnd={stopProp}
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
